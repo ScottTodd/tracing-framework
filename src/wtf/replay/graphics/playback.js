@@ -153,6 +153,19 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
   this.playing_ = false;
 
   /**
+   * True if and only if the latest createShader call was for
+   * a fragment shader.
+   * @type {boolean}
+   */
+  this.latestShaderIsFragment = false;
+
+  /**
+   * If true, replace fragment shaders with a single color shader
+   * @type {boolean}
+   */
+  this.replaceFragmentShaders = false;
+
+  /**
    * The ID of the event (relative to the step iterator) within a step. This is
    * the event that has just executed. -1 if no event in a step has executed.
    * @type {number}
@@ -471,6 +484,16 @@ wtf.replay.graphics.Playback.prototype.setToInitialState_ = function() {
   this.clearWebGlObjects_();
   this.currentStepIndex_ = 0;
   this.subStepId_ = -1;
+};
+
+
+/**
+ * Toggles if fragment shaders will be replaced with a single color shader.
+ */
+wtf.replay.graphics.Playback.prototype.toggleReplaceShaders = function() {
+  this.replaceFragmentShaders = !this.replaceFragmentShaders;
+  goog.global.console.log('replaceFragmentShaders: ' +
+      this.replaceFragmentShaders);
 };
 
 
@@ -1392,6 +1415,12 @@ wtf.replay.graphics.Playback.CALLS_ = {
   },
   'WebGLRenderingContext#createShader': function(
       eventId, playback, gl, args, objs) {
+
+    // Debug to test replacement, should be replaced with
+    // a more organized approach
+    playback.latestShaderIsFragment = args['type'] ==
+        goog.webgl.FRAGMENT_SHADER;
+
     objs[args['shader']] = gl.createShader(args['type']);
     playback.setOwningContext_(objs[args['shader']], gl);
   },
@@ -1465,6 +1494,12 @@ wtf.replay.graphics.Playback.CALLS_ = {
   },
   'WebGLRenderingContext#drawElements': function(
       eventId, playback, gl, args, objs) {
+
+    // gl.enable(goog.webgl.DEPTH_TEST);
+    // gl.depthFunc(goog.webgl.LESS);
+    // gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
+    // gl.enable(goog.webgl.BLEND);
+
     gl.drawElements(
         args['mode'], args['count'], args['type'],
         args['offset']);
@@ -1684,6 +1719,21 @@ wtf.replay.graphics.Playback.CALLS_ = {
     }
 
     if (linkProgram) {
+      var attachedShaders = gl.getAttachedShaders(objs[args['program']]);
+      for (var i = 0; i < attachedShaders.length; ++i) {
+        var shaderType = gl.getShaderParameter(attachedShaders[i],
+            goog.webgl.SHADER_TYPE);
+
+        if (shaderType == goog.webgl.FRAGMENT_SHADER) {
+          goog.global.console.log('Found a fragment shader!');
+        } else if (shaderType == goog.webgl.VERTEX_SHADER) {
+          goog.global.console.log('Found a vertex shader!');
+        }
+
+        // var shaderSource = gl.getShaderSource(attachedShaders[i]);
+        // goog.global.console.log(shaderSource);
+      }
+
       // Link the program only if the program was not cached.
       gl.linkProgram(
           /** @type {WebGLProgram} */ (objs[args['program']]));
@@ -1722,6 +1772,20 @@ wtf.replay.graphics.Playback.CALLS_ = {
   },
   'WebGLRenderingContext#shaderSource': function(
       eventId, playback, gl, args, objs) {
+
+    // possible spot to...
+    //   - inject a new fragment/vertex shader
+    //   - save a shader configuration for later editting
+
+    // Debug idea: check shader type here. If fragment, replace
+    // Note: don't actually do this, this design is not flexible
+    if (playback.latestShaderIsFragment && playback.replaceFragmentShaders) {
+      // goog.global.console.log(args['source']);
+      args['source'] = 'void main(void)' +
+          // ' { gl_FragColor = vec4(0.5, 0.5, 0.5, 0.4); }';
+          ' { gl_FragColor = vec4(0.1, 0.1, 0.4, 1.0); }';
+    }
+
     gl.shaderSource(
         /** @type {WebGLShader} */ (objs[args['shader']]), args['source']);
   },
@@ -1967,6 +2031,25 @@ wtf.replay.graphics.Playback.CALLS_ = {
   },
   'WebGLRenderingContext#useProgram': function(
       eventId, playback, gl, args, objs) {
+
+    /*
+    goog.global.console.log('useProgram called');
+    var attachedShaders = gl.getAttachedShaders(objs[args['program']]);
+    for (var i = 0; i < attachedShaders.length; ++i) {
+      var shaderType = gl.getShaderParameter(attachedShaders[i],
+          goog.webgl.SHADER_TYPE);
+
+      if (shaderType == goog.webgl.FRAGMENT_SHADER) {
+        goog.global.console.log('Found a fragment shader!');
+      } else if (shaderType == goog.webgl.VERTEX_SHADER) {
+        goog.global.console.log('Found a vertex shader!');
+      }
+
+      var shaderSource = gl.getShaderSource(attachedShaders[i]);
+      goog.global.console.log(shaderSource);
+    }
+    */
+
     gl.useProgram(/** @type {WebGLProgram} */ (objs[args['program']]));
   },
   'WebGLRenderingContext#validateProgram': function(
