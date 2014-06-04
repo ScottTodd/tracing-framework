@@ -510,6 +510,11 @@ wtf.replay.graphics.Playback.prototype.clearWebGlObjects_ = function(
     this.pause();
   }
 
+  // Clear variant programs stored within programCollection_ members.
+  for (var programKey in this.programCollection_) {
+    this.programCollection_[programKey].deleteVariants();
+  }
+
   // Clear resources on the GPU.
   for (var objectKey in this.objects_) {
     if (!this.programs_[objectKey] || opt_clearCached) {
@@ -1484,8 +1489,29 @@ wtf.replay.graphics.Playback.CALLS_ = {
   },
   'WebGLRenderingContext#drawArrays': function(
       eventId, playback, gl, args, objs) {
+
+    if (playback.replaceFragmentShaders) {
+      // Get the active program's handle.
+      var currentProgram = /** @type {WebGLProgram} */ (
+          gl.getParameter(goog.webgl.CURRENT_PROGRAM));
+      var currentProgramHandle = null;
+      for (var key in objs) {
+        if (objs[key] == currentProgram) {
+          currentProgramHandle = key;
+        }
+      }
+
+      goog.asserts.assert(currentProgramHandle);
+      playback.programCollection_[currentProgramHandle].prepareToDraw(
+          'highlight');
+    }
+
     gl.drawArrays(
         args['mode'], args['first'], args['count']);
+
+    if (playback.replaceFragmentShaders && currentProgramHandle !== null) {
+      gl.useProgram(objs[currentProgramHandle]);
+    }
   },
   'WebGLRenderingContext#drawElements': function(
       eventId, playback, gl, args, objs) {
@@ -1506,11 +1532,9 @@ wtf.replay.graphics.Playback.CALLS_ = {
         }
       }
 
-      if (currentProgramHandle !== null) {
-        playback.programCollection_[currentProgramHandle].prepareToDraw();
-      } else {
-        goog.global.console.log('Could not find matching program handle.');
-      }
+      goog.asserts.assert(currentProgramHandle);
+      playback.programCollection_[currentProgramHandle].prepareToDraw(
+          'highlight');
     }
 
     gl.drawElements(
