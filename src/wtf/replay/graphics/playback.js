@@ -1492,8 +1492,7 @@ wtf.replay.graphics.Playback.CALLS_ = {
 
     if (playback.replaceFragmentShaders) {
       // Get the active program's handle.
-      var currentProgram = /** @type {WebGLProgram} */ (
-          gl.getParameter(goog.webgl.CURRENT_PROGRAM));
+      var currentProgram = gl.getParameter(goog.webgl.CURRENT_PROGRAM);
       var currentProgramHandle = null;
       for (var key in objs) {
         if (objs[key] == currentProgram) {
@@ -1523,8 +1522,7 @@ wtf.replay.graphics.Playback.CALLS_ = {
 
     if (playback.replaceFragmentShaders) {
       // Get the active program's handle.
-      var currentProgram = /** @type {WebGLProgram} */ (
-          gl.getParameter(goog.webgl.CURRENT_PROGRAM));
+      var currentProgram = gl.getParameter(goog.webgl.CURRENT_PROGRAM);
       var currentProgramHandle = null;
       for (var key in objs) {
         if (objs[key] == currentProgram) {

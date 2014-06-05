@@ -58,12 +58,11 @@ wtf.replay.graphics.Program = function(originalProgram, gl) {
   this.originalFragmentShader_ = null;
 
   // Find and set originalVertexShader_ and originalFragmentShader_.
-  var attachedShaders = /** @type {Array.<!WebGLShader>} */ (
-      gl.getAttachedShaders(originalProgram));
+  var attachedShaders = gl.getAttachedShaders(originalProgram);
 
   for (var i = 0; i < attachedShaders.length; ++i) {
-    var shaderType = /** @type {number} */ (
-        gl.getShaderParameter(attachedShaders[i], goog.webgl.SHADER_TYPE));
+    var shaderType = gl.getShaderParameter(attachedShaders[i],
+        goog.webgl.SHADER_TYPE);
 
     if (shaderType == goog.webgl.VERTEX_SHADER) {
       this.originalVertexShader_ = attachedShaders[i];
@@ -82,46 +81,76 @@ wtf.replay.graphics.Program = function(originalProgram, gl) {
 
 
 /**
- * Creates and links the variant program specified.
+ * Creates and links a variant program.
+ * If optional sources are not defined, the original shaders are used.
  * @param {!string} variantName The name of the variant program to create.
- * @private
+ * @param {string=} opt_vertexShaderSource Custom vertex shader source.
+ * @param {string=} opt_fragmentShaderSource Custom fragment shader source.
  */
-wtf.replay.graphics.Program.prototype.createVariant_ =
-    function(variantName) {
-  // TODO(scotttodd): allow for optional custom variants
+wtf.replay.graphics.Program.prototype.createVariantProgram =
+    function(variantName, opt_vertexShaderSource, opt_fragmentShaderSource) {
+  // TODO(scotttodd): Prevent overriding internal variants (reserved names?).
 
   var context = this.context;
 
-  // Modified shader program that draws all affected pixels with a solid color.
+  // Do not recreate an already existing variant.
+  if (this.variants_[variantName]) {
+    return;
+  }
+
+  this.variants_[variantName] = context.createProgram();
+
+  // Create the vertex shader if needed and attach it.
+  var variantVertexShader = null;
+  if (opt_vertexShaderSource) {
+    variantVertexShader = context.createShader(goog.webgl.VERTEX_SHADER);
+    context.shaderSource(variantVertexShader, opt_vertexShaderSource);
+    context.compileShader(variantVertexShader);
+  } else {
+    variantVertexShader = this.originalVertexShader_;
+  }
+  context.attachShader(this.variants_[variantName], variantVertexShader);
+
+  // Create the fragment shader if needed and attach it.
+  var variantFragmentShader = null;
+  if (opt_fragmentShaderSource) {
+    variantFragmentShader = context.createShader(goog.webgl.FRAGMENT_SHADER);
+    context.shaderSource(variantFragmentShader, opt_fragmentShaderSource);
+    context.compileShader(variantFragmentShader);
+  } else {
+    variantFragmentShader = this.originalFragmentShader_;
+  }
+  context.attachShader(this.variants_[variantName], variantFragmentShader);
+
+  // Link the program, now that all shaders are attached.
+  context.linkProgram(this.variants_[variantName]);
+
+  // Detach all shaders and delete any custom shaders.
+  context.detachShader(this.variants_[variantName], variantVertexShader);
+  context.detachShader(this.variants_[variantName], variantFragmentShader);
+  if (opt_vertexShaderSource) {
+    context.deleteShader(variantVertexShader);
+  }
+  if (opt_fragmentShaderSource) {
+    context.deleteShader(variantFragmentShader);
+  }
+};
+
+
+/**
+ * Creates and links an internally defined variant program.
+ * @param {!string} variantName The name of the variant program to create.
+ * @private
+ */
+wtf.replay.graphics.Program.prototype.createInternalVariant_ =
+    function(variantName) {
+  // highlight: Draws all affected pixels with a solid color.
   if (variantName === 'highlight') {
-    this.variants_['highlight'] = /** @type {WebGLProgram} */ (
-        context.createProgram());
+    // Use a custom fragment shader with the original vertex shader.
+    var highlightFragmentSource = 'void main(void) { ' +
+        'gl_FragColor = vec4(0.1, 0.1, 0.4, 1.0); }';
 
-    // Use the original vertex shader.
-    context.attachShader(this.variants_['highlight'],
-        this.originalVertexShader_);
-
-    // Debug: Use the original fragment shader.
-    // context.attachShader(this.variants_['highlight'],
-    //     this.originalFragmentShader_);
-
-    // Use a custom fragment shader.
-    var highlightFragmentSource = /** @type {string} */ (
-        'void main(void) { gl_FragColor = vec4(0.1, 0.1, 0.4, 1.0); }');
-    var highlightFragmentShader = /** @type {WebGLShader} */ (
-        context.createShader(goog.webgl.FRAGMENT_SHADER));
-    context.shaderSource(highlightFragmentShader, highlightFragmentSource);
-    context.compileShader(highlightFragmentShader);
-    context.attachShader(this.variants_['highlight'], highlightFragmentShader);
-
-    context.linkProgram(this.variants_['highlight']);
-
-    // Detach and delete shaders programs after linking.
-    context.detachShader(
-        this.variants_['highlight'], this.originalVertexShader_);
-    context.detachShader(
-        this.variants_['highlight'], highlightFragmentShader);
-    context.deleteShader(highlightFragmentShader);
+    this.createVariantProgram('highlight', undefined, highlightFragmentSource);
   } else {
     goog.asserts.fail('Unsupported variant name.');
   }
@@ -149,7 +178,7 @@ wtf.replay.graphics.Program.prototype.deleteVariants = function() {
 wtf.replay.graphics.Program.prototype.prepareToDraw =
     function(variantName) {
   if (!this.variants_[variantName]) {
-    this.createVariant_(variantName);
+    this.createInternalVariant_(variantName);
   }
 
   this.syncPrograms_(variantName);
@@ -173,21 +202,19 @@ wtf.replay.graphics.Program.prototype.syncPrograms_ =
       this.originalProgram_, goog.webgl.ACTIVE_UNIFORMS));
 
   for (var i = 0; i < activeUniformsCount; ++i) {
-    var uniformInfo = /** @type {WebGLActiveInfo} */ (
-        context.getActiveUniform(this.originalProgram_, i));
+    var uniformInfo = context.getActiveUniform(this.originalProgram_, i);
 
     // Get uniform value from the original program.
-    var uniformLocationOriginal = /** @type {WebGLUniformLocation} */ (
-        context.getUniformLocation(this.originalProgram_, uniformInfo.name));
-    var uniformValue = /** @type {?} */ (
-        context.getUniform(this.originalProgram_, uniformLocationOriginal));
+    var uniformLocationOriginal = context.getUniformLocation(
+        this.originalProgram_, uniformInfo.name);
+    var uniformValue = /** @type {?} */ (context.getUniform(
+        this.originalProgram_, uniformLocationOriginal));
 
     // Set uniform in variant.
-    context.useProgram(this.variants_['highlight']);
+    context.useProgram(this.variants_[variantName]);
 
-    var uniformLocationVariant = /** @type {WebGLUniformLocation} */ (
-        context.getUniformLocation(this.variants_['highlight'],
-        uniformInfo.name));
+    var uniformLocationVariant = context.getUniformLocation(
+        this.variants_[variantName], uniformInfo.name);
 
     switch (uniformInfo.type) {
       case goog.webgl.BOOL:
@@ -252,14 +279,13 @@ wtf.replay.graphics.Program.prototype.syncPrograms_ =
       goog.webgl.ACTIVE_ATTRIBUTES));
 
   for (var i = 0; i < activeAttributesCount; ++i) {
-    var attributeInfo = /** @type {WebGLActiveInfo} */ (
-        context.getActiveAttrib(this.originalProgram_, i));
+    var attributeInfo = context.getActiveAttrib(this.originalProgram_, i);
 
-    var attribLocationOriginal = /** @type {number} */ (
-        context.getAttribLocation(this.originalProgram_, attributeInfo.name));
+    var attribLocationOriginal = context.getAttribLocation(
+        this.originalProgram_, attributeInfo.name);
 
-    var attribArrayEnabled = /** @type {boolean} */ (context.getVertexAttrib(
-        attribLocationOriginal, goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED));
+    var attribArrayEnabled = context.getVertexAttrib(
+        attribLocationOriginal, goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED);
 
     if (attribArrayEnabled) {
       // Get original vertex attribute array properties.
@@ -280,11 +306,10 @@ wtf.replay.graphics.Program.prototype.syncPrograms_ =
           goog.webgl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING));
 
       // Set attribute in the variant program.
-      context.useProgram(this.variants_['highlight']);
+      context.useProgram(this.variants_[variantName]);
 
-      var attribLocationVariant = /** @type {number} */ (
-          context.getAttribLocation(this.variants_['highlight'],
-          attributeInfo.name));
+      var attribLocationVariant = context.getAttribLocation(
+          this.variants_[variantName], attributeInfo.name);
       // If the attribute is not used (compiled out) in the variant, ignore it.
       if (attribLocationVariant >= 0) {
         context.enableVertexAttribArray(attribLocationVariant);
