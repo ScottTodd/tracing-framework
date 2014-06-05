@@ -25,6 +25,7 @@ goog.require('goog.object');
 goog.require('goog.webgl');
 goog.require('wtf.events.EventEmitter');
 goog.require('wtf.replay.graphics.ExtensionManager');
+goog.require('wtf.replay.graphics.Program');
 goog.require('wtf.replay.graphics.Step');
 goog.require('wtf.timing.util');
 
@@ -124,6 +125,19 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
   this.programs_ = {};
 
   /**
+   * A collection of Programs. Keys are program handles from event arguments.
+   * @type {!Object.<!wtf.replay.graphics.Program>}
+   * @private
+   */
+  this.programCollection_ = {};
+
+  /**
+   * The program handle from event arguments for the latest used program.
+   * @type {number}
+   */
+  this.latestProgramHandle = 0;
+
+  /**
    * Whether resources have finished loading. Set to true after a
    * {@see #fetchResources_} process finishes.
    * @type {boolean}
@@ -151,6 +165,12 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
    * @private
    */
   this.playing_ = false;
+
+  /**
+   * If true, replace fragment shaders with a single color shader
+   * @type {boolean}
+   */
+  this.replaceFragmentShaders = false;
 
   /**
    * The ID of the event (relative to the step iterator) within a step. This is
@@ -475,6 +495,16 @@ wtf.replay.graphics.Playback.prototype.setToInitialState_ = function() {
 
 
 /**
+ * Toggles if fragment shaders will be replaced with a single color shader.
+ */
+wtf.replay.graphics.Playback.prototype.toggleReplaceShaders = function() {
+  this.replaceFragmentShaders = !this.replaceFragmentShaders;
+  goog.global.console.log('replaceFragmentShaders: ' +
+      this.replaceFragmentShaders);
+};
+
+
+/**
  * Clears WebGL objects.
  * @param {boolean=} opt_clearCached True if cached programs should be cleared
  *     too. False by default.
@@ -484,6 +514,11 @@ wtf.replay.graphics.Playback.prototype.clearWebGlObjects_ = function(
     opt_clearCached) {
   if (this.isPlaying()) {
     this.pause();
+  }
+
+  // Clear variant programs stored within programCollection_ members.
+  for (var programKey in this.programCollection_) {
+    this.programCollection_[programKey].deleteVariants();
   }
 
   // Clear resources on the GPU.
@@ -625,6 +660,7 @@ wtf.replay.graphics.Playback.prototype.resetProgramUniforms_ = function(
   }
 
   context.useProgram(null);
+  this.latestProgramHandle = 0;
 };
 
 
@@ -1124,6 +1160,34 @@ wtf.replay.graphics.Playback.prototype.realizeEvent_ = function(it) {
 
 
 /**
+ * Calls the drawFunction and handles usage of variant programs.
+ * @param {function()} drawFunction The draw function to call.
+ */
+wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
+  if (this.replaceFragmentShaders) {
+    goog.asserts.assert(this.latestProgramHandle);
+
+    this.programCollection_[this.latestProgramHandle].drawWithVariant(
+        drawFunction, 'highlight');
+
+    // First iteration on overdraw visualization.
+    /*
+    this.currentContext_.enable(goog.webgl.DEPTH_TEST);
+    this.currentContext_.depthFunc(goog.webgl.LESS);
+    this.currentContext_.blendFunc(goog.webgl.SRC_ALPHA,
+        goog.webgl.ONE_MINUS_SRC_ALPHA);
+    this.currentContext_.enable(goog.webgl.BLEND);
+
+    this.programCollection_[this.latestProgramHandle].drawWithVariant(
+        drawFunction, 'overdraw');
+    */
+  } else {
+    drawFunction();
+  }
+};
+
+
+/**
  * Stores the context of a canvas-related object as a property of that object.
  * @param {!Object} obj The object to set the context of.
  * @param {!WebGLRenderingContext} ctx The context of the object.
@@ -1460,14 +1524,15 @@ wtf.replay.graphics.Playback.CALLS_ = {
   },
   'WebGLRenderingContext#drawArrays': function(
       eventId, playback, gl, args, objs) {
-    gl.drawArrays(
+    var drawFunction = goog.bind(gl.drawArrays, gl,
         args['mode'], args['first'], args['count']);
+    playback.performDraw(drawFunction);
   },
   'WebGLRenderingContext#drawElements': function(
       eventId, playback, gl, args, objs) {
-    gl.drawElements(
-        args['mode'], args['count'], args['type'],
-        args['offset']);
+    var drawFunction = goog.bind(gl.drawElements, gl,
+        args['mode'], args['count'], args['type'], args['offset']);
+    playback.performDraw(drawFunction);
   },
   'WebGLRenderingContext#enable': function(
       eventId, playback, gl, args, objs) {
@@ -1687,6 +1752,9 @@ wtf.replay.graphics.Playback.CALLS_ = {
       // Link the program only if the program was not cached.
       gl.linkProgram(
           /** @type {WebGLProgram} */ (objs[args['program']]));
+
+      var program = new wtf.replay.graphics.Program(objs[args['program']], gl);
+      playback.programCollection_[args['program']] = program;
     }
   },
   'WebGLRenderingContext#pixelStorei': function(
@@ -1968,6 +2036,7 @@ wtf.replay.graphics.Playback.CALLS_ = {
   'WebGLRenderingContext#useProgram': function(
       eventId, playback, gl, args, objs) {
     gl.useProgram(/** @type {WebGLProgram} */ (objs[args['program']]));
+    playback.latestProgramHandle = args['program'];
   },
   'WebGLRenderingContext#validateProgram': function(
       eventId, playback, gl, args, objs) {
@@ -2022,16 +2091,18 @@ wtf.replay.graphics.Playback.CALLS_ = {
       eventId, playback, gl, args, objs) {
     // TODO(benvanik): optimize extension fetch.
     var ext = gl.getExtension('ANGLE_instanced_arrays');
-    ext['drawArraysInstancedANGLE'](
+    var drawFunction = goog.bind(ext['drawArraysInstancedANGLE'], ext,
         args['mode'], args['first'], args['count'], args['primcount']);
+    playback.performDraw(drawFunction);
   },
   'ANGLEInstancedArrays#drawElementsInstancedANGLE': function(
       eventId, playback, gl, args, objs) {
     // TODO(benvanik): optimize extension fetch.
     var ext = gl.getExtension('ANGLE_instanced_arrays');
-    ext['drawElementsInstancedANGLE'](
+    var drawFunction = goog.bind(ext['drawElementsInstancedANGLE'], ext,
         args['mode'], args['count'], args['type'], args['offset'],
         args['primcount']);
+    playback.performDraw(drawFunction);
   },
   'ANGLEInstancedArrays#vertexAttribDivisorANGLE': function(
       eventId, playback, gl, args, objs) {

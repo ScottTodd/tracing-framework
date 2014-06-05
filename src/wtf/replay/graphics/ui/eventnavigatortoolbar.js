@@ -92,6 +92,14 @@ wtf.replay.graphics.ui.EventNavigatorToolbar = function(
       goog.getCssName('lastCallButton'));
 
   /**
+   * A test function button.
+   * @type {!Element}
+   * @private
+   */
+  this.testFunctionButton_ = this.getChildElement(
+      goog.getCssName('testFunctionButton'));
+
+  /**
    * The options button.
    * @type {!Element}
    * @private
@@ -219,6 +227,10 @@ wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.setReady = function() {
       this.lastCallButton_,
       goog.events.EventType.CLICK,
       this.lastCallHandler_, false, this);
+  eh.listen(
+      this.testFunctionButton_,
+      goog.events.EventType.CLICK,
+      this.testFunctionHandler_, false, this);
 
   // Setup keyboard shortcuts.
   var keyboard = wtf.events.getWindowKeyboard(this.getDom());
@@ -253,6 +265,7 @@ wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.setEnabled_ =
   this.toggleButton(goog.getCssName('previousDrawCallButton'), enabled);
   this.toggleButton(goog.getCssName('nextDrawCallButton'), enabled);
   this.toggleButton(goog.getCssName('lastCallButton'), enabled);
+  this.toggleButton(goog.getCssName('testFunctionButton'), enabled);
   this.searchControl_.setEnabled(enabled);
   this.toggleButton(goog.getCssName('optionsButton'), enabled);
 };
@@ -323,6 +336,20 @@ wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.lastCallHandler_ =
   this.emitEvent(
       wtf.replay.graphics.ui.EventNavigatorToolbar.EventType
           .MANUAL_SUB_STEP_SEEK);
+};
+
+
+/**
+ * Handles clicks of the test function button.
+ * @private
+ */
+wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.testFunctionHandler_ =
+    function() {
+  if (!this.enabled_) {
+    return;
+  }
+
+  this.playback_.toggleReplaceShaders();
 };
 
 
