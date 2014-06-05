@@ -151,6 +151,12 @@ wtf.replay.graphics.Program.prototype.createInternalVariant_ =
         'gl_FragColor = vec4(0.1, 0.1, 0.4, 1.0); }';
 
     this.createVariantProgram('highlight', undefined, highlightFragmentSource);
+  } else if (variantName === 'overdraw') {
+    // Use a custom fragment shader with the original vertex shader.
+    var overdrawFragmentSource = 'void main(void) { ' +
+        'gl_FragColor = vec4(0.1, 0.1, 0.1, 0.4); }';
+
+    this.createVariantProgram('overdraw', undefined, overdrawFragmentSource);
   } else {
     goog.asserts.fail('Unsupported variant name.');
   }
@@ -169,21 +175,24 @@ wtf.replay.graphics.Program.prototype.deleteVariants = function() {
 };
 
 
-// TODO(scotttodd): Replace prepareToDraw with a draw wrapper that takes a
-//     function as an input parameter? Use goog.bind?
 /**
- * Prepares a variant program for drawing.
- * @param {!string} variantName The name of the variant program to sync.
+ * Calls the specified draw function using the specified variant program.
+ * @param {function()} drawFunction The draw function to call.
+ * @param {!string} variantName The name of the variant program to use.
  */
-wtf.replay.graphics.Program.prototype.prepareToDraw =
-    function(variantName) {
+wtf.replay.graphics.Program.prototype.drawWithVariant =
+    function(drawFunction, variantName) {
   if (!this.variants_[variantName]) {
     this.createInternalVariant_(variantName);
   }
 
   this.syncPrograms_(variantName);
 
-  this.context.useProgram(this.variants_['highlight']);
+  this.context.useProgram(this.variants_[variantName]);
+
+  drawFunction();
+
+  this.context.useProgram(this.originalProgram_);
 };
 
 
