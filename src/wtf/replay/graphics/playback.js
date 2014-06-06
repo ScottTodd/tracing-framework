@@ -505,6 +505,38 @@ wtf.replay.graphics.Playback.prototype.toggleReplaceShaders = function() {
 
 
 /**
+ * Creates a wtf.replay.graphics.Program from the program at programHandle.
+ * @param {!number} programHandle The program handle from event arguments.
+ * @param {!WebGLRenderingContext} context The context of the program.
+ */
+wtf.replay.graphics.Playback.prototype.addProgram = function(programHandle,
+    context) {
+  var program = new wtf.replay.graphics.Program(
+      this.programs_[programHandle], context);
+  this.programCollection_[programHandle] = program;
+
+  var highlightFragmentSource = 'void main(void) { ' +
+      'gl_FragColor = vec4(0.1, 0.1, 0.4, 1.0); }';
+  program.createVariantProgram('highlight', '', highlightFragmentSource);
+
+  var overdrawFragmentSource = 'void main(void) { ' +
+      'gl_FragColor = vec4(0.1, 0.1, 0.1, 0.4); }';
+  program.createVariantProgram('overdraw', '', overdrawFragmentSource);
+};
+
+
+/**
+ * Deletes the Program associated with the original shader program at
+ * programHandle.
+ * @param {!number} programHandle The program handle from event arguments.
+ */
+wtf.replay.graphics.Playback.prototype.deleteProgram = function(programHandle) {
+  this.programCollection_[programHandle].deleteVariants();
+  delete this.programCollection_[programHandle];
+};
+
+
+/**
  * Clears WebGL objects.
  * @param {boolean=} opt_clearCached True if cached programs should be cleared
  *     too. False by default.
@@ -1477,6 +1509,7 @@ wtf.replay.graphics.Playback.CALLS_ = {
   'WebGLRenderingContext#deleteProgram': function(
       eventId, playback, gl, args, objs) {
     var programHandle = args['program'];
+    playback.deleteProgram(programHandle);
     gl.deleteProgram(
         /** @type {WebGLProgram} */ (objs[programHandle]));
     delete objs[programHandle];
@@ -1752,9 +1785,7 @@ wtf.replay.graphics.Playback.CALLS_ = {
       // Link the program only if the program was not cached.
       gl.linkProgram(
           /** @type {WebGLProgram} */ (objs[args['program']]));
-
-      var program = new wtf.replay.graphics.Program(objs[args['program']], gl);
-      playback.programCollection_[args['program']] = program;
+      playback.addProgram(args['program'], gl);
     }
   },
   'WebGLRenderingContext#pixelStorei': function(

@@ -89,8 +89,6 @@ wtf.replay.graphics.Program = function(originalProgram, gl) {
  */
 wtf.replay.graphics.Program.prototype.createVariantProgram =
     function(variantName, opt_vertexShaderSource, opt_fragmentShaderSource) {
-  // TODO(scotttodd): Prevent overriding internal variants (reserved names?).
-
   var context = this.context;
 
   // Do not recreate an already existing variant.
@@ -138,32 +136,6 @@ wtf.replay.graphics.Program.prototype.createVariantProgram =
 
 
 /**
- * Creates and links an internally defined variant program.
- * @param {!string} variantName The name of the variant program to create.
- * @private
- */
-wtf.replay.graphics.Program.prototype.createInternalVariant_ =
-    function(variantName) {
-  // highlight: Draws all affected pixels with a solid color.
-  if (variantName === 'highlight') {
-    // Use a custom fragment shader with the original vertex shader.
-    var highlightFragmentSource = 'void main(void) { ' +
-        'gl_FragColor = vec4(0.1, 0.1, 0.4, 1.0); }';
-
-    this.createVariantProgram('highlight', undefined, highlightFragmentSource);
-  } else if (variantName === 'overdraw') {
-    // Use a custom fragment shader with the original vertex shader.
-    var overdrawFragmentSource = 'void main(void) { ' +
-        'gl_FragColor = vec4(0.1, 0.1, 0.1, 0.4); }';
-
-    this.createVariantProgram('overdraw', undefined, overdrawFragmentSource);
-  } else {
-    goog.asserts.fail('Unsupported variant name.');
-  }
-};
-
-
-/**
  * Delete all variant programs from the context and removes references to them.
  */
 wtf.replay.graphics.Program.prototype.deleteVariants = function() {
@@ -176,6 +148,20 @@ wtf.replay.graphics.Program.prototype.deleteVariants = function() {
 
 
 /**
+ * Returns the variant program requested. Fails if the variant does not exist.
+ * @param {!string} variantName The name of the variant program to get.
+ * @return {WebGLProgram}
+ */
+wtf.replay.graphics.Program.prototype.getVariantProgram =
+    function(variantName) {
+  if (!this.variants_[variantName]) {
+    goog.asserts.fail('Variant \'' + variantName + '\' does not exist.');
+  }
+  return this.variants_[variantName];
+};
+
+
+/**
  * Calls the specified draw function using the specified variant program.
  * @param {function()} drawFunction The draw function to call.
  * @param {!string} variantName The name of the variant program to use.
@@ -183,7 +169,7 @@ wtf.replay.graphics.Program.prototype.deleteVariants = function() {
 wtf.replay.graphics.Program.prototype.drawWithVariant =
     function(drawFunction, variantName) {
   if (!this.variants_[variantName]) {
-    this.createInternalVariant_(variantName);
+    goog.asserts.fail('Variant \'' + variantName + '\' does not exist.');
   }
 
   this.syncPrograms_(variantName);
