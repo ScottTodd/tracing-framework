@@ -16,6 +16,7 @@
 
 goog.provide('wtf.replay.graphics.Program');
 
+goog.require('goog.Disposable');
 goog.require('goog.asserts');
 goog.require('goog.webgl');
 
@@ -28,8 +29,11 @@ goog.require('goog.webgl');
  *     Vertex and fragment shaders must already be attached.
  * @param {!WebGLRenderingContext} gl The context used by originalProgram.
  * @constructor
+ * @extends {goog.Disposable}
  */
 wtf.replay.graphics.Program = function(originalProgram, gl) {
+  goog.base(this);
+
   /**
    * Unmodified WebGL shader program.
    * @type {!WebGLProgram}
@@ -40,8 +44,9 @@ wtf.replay.graphics.Program = function(originalProgram, gl) {
   /**
    * The WebGL context used by the original and all variant programs.
    * @type {!WebGLRenderingContext}
+   * @private
    */
-  this.context = gl;
+  this.context_ = gl;
 
   /**
    * Original vertex shader used by originalProgram.
@@ -78,6 +83,17 @@ wtf.replay.graphics.Program = function(originalProgram, gl) {
    */
   this.variants_ = {};
 };
+goog.inherits(wtf.replay.graphics.Program, goog.Disposable);
+
+
+/**
+ * @override
+ */
+wtf.replay.graphics.Program.prototype.disposeInternal = function() {
+  this.deleteVariants();
+
+  goog.base(this, 'disposeInternal');
+};
 
 
 /**
@@ -89,14 +105,13 @@ wtf.replay.graphics.Program = function(originalProgram, gl) {
  */
 wtf.replay.graphics.Program.prototype.createVariantProgram =
     function(variantName, opt_vertexShaderSource, opt_fragmentShaderSource) {
-  var context = this.context;
+  var context = this.context_;
 
   // Do not recreate an already existing variant.
-  if (this.variants_[variantName]) {
-    return;
-  }
+  goog.asserts.assert(!this.variants_[variantName],
+      'Variant \'' + variantName + '\' already exists.');
 
-  this.variants_[variantName] = context.createProgram();
+  var program = this.variants_[variantName] = context.createProgram();
 
   // Create the vertex shader if needed and attach it.
   var variantVertexShader = null;
@@ -107,7 +122,7 @@ wtf.replay.graphics.Program.prototype.createVariantProgram =
   } else {
     variantVertexShader = this.originalVertexShader_;
   }
-  context.attachShader(this.variants_[variantName], variantVertexShader);
+  context.attachShader(program, variantVertexShader);
 
   // Create the fragment shader if needed and attach it.
   var variantFragmentShader = null;
@@ -118,14 +133,21 @@ wtf.replay.graphics.Program.prototype.createVariantProgram =
   } else {
     variantFragmentShader = this.originalFragmentShader_;
   }
-  context.attachShader(this.variants_[variantName], variantFragmentShader);
+  context.attachShader(program, variantFragmentShader);
 
   // Link the program, now that all shaders are attached.
-  context.linkProgram(this.variants_[variantName]);
+  context.linkProgram(program);
+
+  // Check if linking was successful.
+  var status = context.getProgramParameter(program, goog.webgl.LINK_STATUS);
+  if (!status) {
+    goog.global.console.log('Error: Variant \'' + variantName + '\' ' +
+        'failed to link.');
+  }
 
   // Detach all shaders and delete any custom shaders.
-  context.detachShader(this.variants_[variantName], variantVertexShader);
-  context.detachShader(this.variants_[variantName], variantFragmentShader);
+  context.detachShader(program, variantVertexShader);
+  context.detachShader(program, variantFragmentShader);
   if (opt_vertexShaderSource) {
     context.deleteShader(variantVertexShader);
   }
@@ -140,7 +162,7 @@ wtf.replay.graphics.Program.prototype.createVariantProgram =
  */
 wtf.replay.graphics.Program.prototype.deleteVariants = function() {
   for (var variantName in this.variants_) {
-    this.context.deleteProgram(this.variants_[variantName]);
+    this.context_.deleteProgram(this.variants_[variantName]);
   }
 
   this.variants_ = {};
@@ -154,9 +176,8 @@ wtf.replay.graphics.Program.prototype.deleteVariants = function() {
  */
 wtf.replay.graphics.Program.prototype.getVariantProgram =
     function(variantName) {
-  if (!this.variants_[variantName]) {
-    goog.asserts.fail('Variant \'' + variantName + '\' does not exist.');
-  }
+  goog.asserts.assert(this.variants_[variantName],
+      'Variant \'' + variantName + '\' does not exist.');
   return this.variants_[variantName];
 };
 
@@ -168,17 +189,16 @@ wtf.replay.graphics.Program.prototype.getVariantProgram =
  */
 wtf.replay.graphics.Program.prototype.drawWithVariant =
     function(drawFunction, variantName) {
-  if (!this.variants_[variantName]) {
-    goog.asserts.fail('Variant \'' + variantName + '\' does not exist.');
-  }
+  goog.asserts.assert(this.variants_[variantName],
+      'Variant \'' + variantName + '\' does not exist.');
 
   this.syncPrograms_(variantName);
 
-  this.context.useProgram(this.variants_[variantName]);
+  this.context_.useProgram(this.variants_[variantName]);
 
   drawFunction();
 
-  this.context.useProgram(this.originalProgram_);
+  this.context_.useProgram(this.originalProgram_);
 };
 
 
@@ -190,7 +210,7 @@ wtf.replay.graphics.Program.prototype.drawWithVariant =
 wtf.replay.graphics.Program.prototype.syncPrograms_ =
     function(variantName) {
 
-  var context = this.context;
+  var context = this.context_;
 
   // Sync uniforms.
   var activeUniformsCount = /** @type {number} */ (context.getProgramParameter(

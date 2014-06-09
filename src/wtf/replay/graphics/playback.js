@@ -134,8 +134,9 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
   /**
    * The program handle from event arguments for the latest used program.
    * @type {number}
+   * @private
    */
-  this.latestProgramHandle = 0;
+  this.latestProgramHandle_ = 0;
 
   /**
    * Whether resources have finished loading. Set to true after a
@@ -169,8 +170,9 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
   /**
    * If true, replace fragment shaders with a single color shader
    * @type {boolean}
+   * @private
    */
-  this.replaceFragmentShaders = false;
+  this.replaceFragmentShaders_ = false;
 
   /**
    * The ID of the event (relative to the step iterator) within a step. This is
@@ -498,19 +500,21 @@ wtf.replay.graphics.Playback.prototype.setToInitialState_ = function() {
  * Toggles if fragment shaders will be replaced with a single color shader.
  */
 wtf.replay.graphics.Playback.prototype.toggleReplaceShaders = function() {
-  this.replaceFragmentShaders = !this.replaceFragmentShaders;
-  goog.global.console.log('replaceFragmentShaders: ' +
-      this.replaceFragmentShaders);
+  this.replaceFragmentShaders_ = !this.replaceFragmentShaders_;
 };
 
 
 /**
  * Creates a wtf.replay.graphics.Program from the program at programHandle.
- * @param {!number} programHandle The program handle from event arguments.
+ * @param {!string} programHandle The program handle from event arguments.
  * @param {!WebGLRenderingContext} context The context of the program.
  */
 wtf.replay.graphics.Playback.prototype.addProgram = function(programHandle,
     context) {
+  // Programs can be linked multiple times. Avoid leaking the previous program.
+  if (this.programCollection_[programHandle]) {
+    this.deleteProgram(programHandle);
+  }
   var program = new wtf.replay.graphics.Program(
       this.programs_[programHandle], context);
   this.programCollection_[programHandle] = program;
@@ -528,10 +532,10 @@ wtf.replay.graphics.Playback.prototype.addProgram = function(programHandle,
 /**
  * Deletes the Program associated with the original shader program at
  * programHandle.
- * @param {!number} programHandle The program handle from event arguments.
+ * @param {!string} programHandle The program handle from event arguments.
  */
 wtf.replay.graphics.Playback.prototype.deleteProgram = function(programHandle) {
-  this.programCollection_[programHandle].deleteVariants();
+  goog.dispose(this.programCollection_[programHandle]);
   delete this.programCollection_[programHandle];
 };
 
@@ -548,9 +552,11 @@ wtf.replay.graphics.Playback.prototype.clearWebGlObjects_ = function(
     this.pause();
   }
 
-  // Clear variant programs stored within programCollection_ members.
+  // Delete Programs and variants that are not cached.
   for (var programKey in this.programCollection_) {
-    this.programCollection_[programKey].deleteVariants();
+    if (!this.programs_[programKey] || opt_clearCached) {
+      this.deleteProgram(programKey);
+    }
   }
 
   // Clear resources on the GPU.
@@ -692,7 +698,7 @@ wtf.replay.graphics.Playback.prototype.resetProgramUniforms_ = function(
   }
 
   context.useProgram(null);
-  this.latestProgramHandle = 0;
+  this.latestProgramHandle_ = 0;
 };
 
 
@@ -1196,23 +1202,11 @@ wtf.replay.graphics.Playback.prototype.realizeEvent_ = function(it) {
  * @param {function()} drawFunction The draw function to call.
  */
 wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
-  if (this.replaceFragmentShaders) {
-    goog.asserts.assert(this.latestProgramHandle);
+  if (this.replaceFragmentShaders_) {
+    goog.asserts.assert(this.latestProgramHandle_);
 
-    this.programCollection_[this.latestProgramHandle].drawWithVariant(
+    this.programCollection_[this.latestProgramHandle_].drawWithVariant(
         drawFunction, 'highlight');
-
-    // First iteration on overdraw visualization.
-    /*
-    this.currentContext_.enable(goog.webgl.DEPTH_TEST);
-    this.currentContext_.depthFunc(goog.webgl.LESS);
-    this.currentContext_.blendFunc(goog.webgl.SRC_ALPHA,
-        goog.webgl.ONE_MINUS_SRC_ALPHA);
-    this.currentContext_.enable(goog.webgl.BLEND);
-
-    this.programCollection_[this.latestProgramHandle].drawWithVariant(
-        drawFunction, 'overdraw');
-    */
   } else {
     drawFunction();
   }
@@ -1557,15 +1551,16 @@ wtf.replay.graphics.Playback.CALLS_ = {
   },
   'WebGLRenderingContext#drawArrays': function(
       eventId, playback, gl, args, objs) {
-    var drawFunction = goog.bind(gl.drawArrays, gl,
-        args['mode'], args['first'], args['count']);
-    playback.performDraw(drawFunction);
+    playback.performDraw(function() {
+      gl.drawArrays(args['mode'], args['first'], args['count']);
+    });
   },
   'WebGLRenderingContext#drawElements': function(
       eventId, playback, gl, args, objs) {
-    var drawFunction = goog.bind(gl.drawElements, gl,
-        args['mode'], args['count'], args['type'], args['offset']);
-    playback.performDraw(drawFunction);
+    playback.performDraw(function() {
+      gl.drawElements(args['mode'], args['count'], args['type'],
+          args['offset']);
+    });
   },
   'WebGLRenderingContext#enable': function(
       eventId, playback, gl, args, objs) {
@@ -2067,7 +2062,7 @@ wtf.replay.graphics.Playback.CALLS_ = {
   'WebGLRenderingContext#useProgram': function(
       eventId, playback, gl, args, objs) {
     gl.useProgram(/** @type {WebGLProgram} */ (objs[args['program']]));
-    playback.latestProgramHandle = args['program'];
+    playback.latestProgramHandle_ = args['program'];
   },
   'WebGLRenderingContext#validateProgram': function(
       eventId, playback, gl, args, objs) {
@@ -2122,18 +2117,21 @@ wtf.replay.graphics.Playback.CALLS_ = {
       eventId, playback, gl, args, objs) {
     // TODO(benvanik): optimize extension fetch.
     var ext = gl.getExtension('ANGLE_instanced_arrays');
-    var drawFunction = goog.bind(ext['drawArraysInstancedANGLE'], ext,
-        args['mode'], args['first'], args['count'], args['primcount']);
-    playback.performDraw(drawFunction);
+
+    playback.performDraw(function() {
+      ext['drawArraysInstancedANGLE'](args['mode'], args['first'],
+          args['count'], args['primcount']);
+    });
   },
   'ANGLEInstancedArrays#drawElementsInstancedANGLE': function(
       eventId, playback, gl, args, objs) {
     // TODO(benvanik): optimize extension fetch.
     var ext = gl.getExtension('ANGLE_instanced_arrays');
-    var drawFunction = goog.bind(ext['drawElementsInstancedANGLE'], ext,
-        args['mode'], args['count'], args['type'], args['offset'],
-        args['primcount']);
-    playback.performDraw(drawFunction);
+
+    playback.performDraw(function() {
+      ext['drawElementsInstancedANGLE'](args['mode'], args['count'],
+          args['type'], args['offset'], args['primcount']);
+    });
   },
   'ANGLEInstancedArrays#vertexAttribDivisorANGLE': function(
       eventId, playback, gl, args, objs) {
