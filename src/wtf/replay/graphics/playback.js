@@ -153,6 +153,13 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
   this.playbackRTT_ = null;
 
   /**
+   * A renderbuffer used for depth information in the intermediate framebuffer.
+   * @type {WebGLRenderbuffer}
+   * @private
+   */
+  this.playbackRenderbuffer_ = null;
+
+  /**
    * A shader program that simply draws a texture.
    * @type {WebGLProgram}
    * @private
@@ -1238,14 +1245,14 @@ wtf.replay.graphics.Playback.prototype.realizeEvent_ = function(it) {
  */
 wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   // Render into separate, offscreen buffers
-  if (this.replaceFragmentShaders_) {
-    goog.asserts.assert(this.latestProgramHandle_);
+  // if (this.replaceFragmentShaders_) {
+  //   goog.asserts.assert(this.latestProgramHandle_);
 
-    this.programCollection_[this.latestProgramHandle_].drawWithVariant(
-        drawFunction, 'highlight');
-  } else {
-    // drawFunction();
-  }
+  //   this.programCollection_[this.latestProgramHandle_].drawWithVariant(
+  //       drawFunction, 'highlight');
+  // } else {
+  //   // drawFunction();
+  // }
 
 
   var gl = this.currentContext_;
@@ -1265,43 +1272,123 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
 
   gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, this.playbackFramebuffer_);
   // gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
-  drawFunction();
+  // drawFunction();
+
+
+  if (this.replaceFragmentShaders_) {
+    goog.asserts.assert(this.latestProgramHandle_);
+
+    this.programCollection_[this.latestProgramHandle_].drawWithVariant(
+        drawFunction, 'highlight');
+  } else {
+    drawFunction();
+  }
+  // gl.finish(); // might help?
   // contents should now be in this.playbackRTT_
 
 
   gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
-  gl.clear(goog.webgl.COLOR_BUFFER_BIT | goog.webgl.DEPTH_BUFFER_BIT);
+  // gl.clear(goog.webgl.COLOR_BUFFER_BIT | goog.webgl.DEPTH_BUFFER_BIT);
 
   gl.useProgram(this.drawTextureProgram_);
 
-  gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this.squareVertexPositionBuffer_);
   var vertexAttribLocation = gl.getAttribLocation(this.drawTextureProgram_,
       'aVertexPosition');
+
+  // Backup vertex attrib settings for the first location.
+  var attribArrayEnabled1 = gl.getVertexAttrib(
+      vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED);
+  // if (attribArrayEnabled1) {
+  var attribArraySize1 = /** @type {number} */ (gl.getVertexAttrib(
+      vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_SIZE));
+  var attribArrayType1 = /** @type {number} */ (gl.getVertexAttrib(
+      vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_TYPE));
+  var attribArrayNormalized1 = /** @type {boolean} */ (
+      gl.getVertexAttrib(vertexAttribLocation,
+      goog.webgl.VERTEX_ATTRIB_ARRAY_NORMALIZED));
+  var attribArrayStride1 = /** @type {number} */ (gl.getVertexAttrib(
+      vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_STRIDE));
+  var attribArrayOffset1 = /** @type {number} */ (
+      gl.getVertexAttribOffset(vertexAttribLocation,
+      goog.webgl.VERTEX_ATTRIB_ARRAY_POINTER));
+  var attribArrayBufferBinding1 = /** @type {WebGLBuffer} */ (
+      gl.getVertexAttrib(vertexAttribLocation,
+      goog.webgl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING));
+
+  // Change vertex attrib settings.
+  gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this.squareVertexPositionBuffer_);
   gl.enableVertexAttribArray(vertexAttribLocation);
-  gl.vertexAttribPointer(vertexAttribLocation, 3, goog.webgl.FLOAT, false,
+  gl.vertexAttribPointer(vertexAttribLocation, 2, goog.webgl.FLOAT, false,
       0, 0);
 
-  gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this.squareTextureCoordBuffer_);
   var textureCoordAttribLocation = gl.getAttribLocation(
       this.drawTextureProgram_, 'aTextureCoord');
+
+  // Backup vertex attrib settings for the second location.
+  var attribArrayEnabled2 = gl.getVertexAttrib(
+      textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED);
+  if (attribArrayEnabled1) {
+    var attribArraySize2 = /** @type {number} */ (gl.getVertexAttrib(
+        textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_SIZE));
+    var attribArrayType2 = /** @type {number} */ (gl.getVertexAttrib(
+        textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_TYPE));
+    var attribArrayNormalized2 = /** @type {boolean} */ (
+        gl.getVertexAttrib(textureCoordAttribLocation,
+        goog.webgl.VERTEX_ATTRIB_ARRAY_NORMALIZED));
+    var attribArrayStride2 = /** @type {number} */ (gl.getVertexAttrib(
+        textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_STRIDE));
+    var attribArrayOffset2 = /** @type {number} */ (
+        gl.getVertexAttribOffset(textureCoordAttribLocation,
+        goog.webgl.VERTEX_ATTRIB_ARRAY_POINTER));
+    var attribArrayBufferBinding2 = /** @type {WebGLBuffer} */ (
+        gl.getVertexAttrib(textureCoordAttribLocation,
+        goog.webgl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING));
+  }
+
+  // Change texture coord attrib settings.
+  gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this.squareTextureCoordBuffer_);
   gl.enableVertexAttribArray(textureCoordAttribLocation);
   gl.vertexAttribPointer(textureCoordAttribLocation, 2, goog.webgl.FLOAT,
       false, 0, 0);
 
-  // gl.activeTexture(goog.webgl.TEXTURE0);
-  gl.bindTexture(goog.webgl.TEXTURE_2D, this.playbackRTT_);
   var uniformLocation = gl.getUniformLocation(this.drawTextureProgram_,
       'uSampler');
+  // gl.activeTexture(goog.webgl.TEXTURE0);
+  gl.bindTexture(goog.webgl.TEXTURE_2D, this.playbackRTT_);
+  // gl.texImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, 854, 480,
+  //     0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
   gl.uniform1i(uniformLocation, 0);
 
-  gl.drawArrays(goog.webgl.TRIANGLE_STRIP, 0, 4);
+  // gl.drawArrays(goog.webgl.TRIANGLE_STRIP, 0, 4);
+  gl.drawArrays(goog.webgl.TRIANGLES, 0, 6);
 
+  // Restore vertex attrib settings.
+  if (attribArrayEnabled1) {
+    gl.enableVertexAttribArray(vertexAttribLocation);
+    gl.bindBuffer(goog.webgl.ARRAY_BUFFER, attribArrayBufferBinding1);
+    gl.vertexAttribPointer(vertexAttribLocation, attribArraySize1,
+        attribArrayType1, attribArrayNormalized1, attribArrayStride1,
+        attribArrayOffset1);
+  } else {
+    gl.disableVertexAttribArray(vertexAttribLocation);
+  }
+  // Restore texture coord attrib settings.
+  if (attribArrayEnabled2) {
+    gl.enableVertexAttribArray(textureCoordAttribLocation);
+    gl.bindBuffer(goog.webgl.ARRAY_BUFFER, attribArrayBufferBinding2);
+    gl.vertexAttribPointer(textureCoordAttribLocation, attribArraySize2,
+        attribArrayType2, attribArrayNormalized2, attribArrayStride2,
+        attribArrayOffset2);
+  } else {
+    gl.disableVertexAttribArray(textureCoordAttribLocation);
+  }
 
   // Restore bindings to their original values.
   gl.useProgram(originalProgram);
   gl.bindTexture(goog.webgl.TEXTURE_2D, originalTextureBinding);
-  gl.activeTexture(originalActiveTexture);
   gl.bindBuffer(goog.webgl.ARRAY_BUFFER, originalArrayBuffer);
+  gl.activeTexture(originalActiveTexture);
+  gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
 
 
   // Composite/blend the offscreen buffers into the framebuffer (visible)
@@ -1488,10 +1575,13 @@ wtf.replay.graphics.Playback.CALLS_ = {
   'WebGLRenderingContext#clear': function(
       eventId, playback, gl, args, objs) {
 
+    // gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, null);
     var originalFramebuffer = gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING);
-    gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, this.playbackFramebuffer_);
+    gl.clear(args['mask']);
+    gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, playback.playbackFramebuffer_);
     gl.clear(args['mask']);
     gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
+
   },
   'WebGLRenderingContext#clearColor': function(
       eventId, playback, gl, args, objs) {
@@ -2302,6 +2392,24 @@ wtf.replay.graphics.Playback.CALLS_ = {
       // If the context has already been made, alter its settings.
       gl.canvas.width = width;
       gl.canvas.height = height;
+
+      var originalFramebuffer = gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING);
+      // Update intermediate rendering dimensions.
+      var originalActiveTexture = gl.getParameter(
+          goog.webgl.TEXTURE_BINDING_2D);
+      gl.bindTexture(goog.webgl.TEXTURE_2D, playback.playbackRTT_);
+      gl.texImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, width, height,
+          0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
+      gl.bindTexture(goog.webgl.TEXTURE_2D, originalActiveTexture);
+
+      var originalRenderbuffer = gl.getParameter(
+          goog.webgl.RENDERBUFFER_BINDING);
+      gl.bindRenderbuffer(goog.webgl.RENDERBUFFER,
+          playback.playbackRenderbuffer_);
+      gl.renderbufferStorage(goog.webgl.RENDERBUFFER,
+          goog.webgl.DEPTH_COMPONENT16, width, height);
+      gl.bindRenderbuffer(goog.webgl.RENDERBUFFER, originalRenderbuffer);
+      gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
     } else {
       // Otherwise, make a new context.
 
@@ -2383,35 +2491,39 @@ wtf.replay.graphics.Playback.CALLS_ = {
       //     0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
       gl.texImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, width, height,
           0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
+      // gl.texImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, 2048, 2048,
+      //     0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
 
       // TODO(scotttodd): Check if this (depth renderbuffer) is needed
-      var playbackRenderbuffer = gl.createRenderbuffer();
-      gl.bindRenderbuffer(goog.webgl.RENDERBUFFER, playbackRenderbuffer);
+      playback.playbackRenderbuffer_ = gl.createRenderbuffer();
+      gl.bindRenderbuffer(goog.webgl.RENDERBUFFER,
+          playback.playbackRenderbuffer_);
       gl.renderbufferStorage(goog.webgl.RENDERBUFFER,
           goog.webgl.DEPTH_COMPONENT16, width, height);
+      // gl.renderbufferStorage(goog.webgl.RENDERBUFFER,
+      //     goog.webgl.DEPTH_COMPONENT16, 2048, 2048);
 
       gl.framebufferTexture2D(goog.webgl.FRAMEBUFFER,
           goog.webgl.COLOR_ATTACHMENT0, goog.webgl.TEXTURE_2D,
           playback.playbackRTT_, 0);
       gl.framebufferRenderbuffer(goog.webgl.FRAMEBUFFER,
           goog.webgl.DEPTH_ATTACHMENT, goog.webgl.RENDERBUFFER,
-          playbackRenderbuffer);
+          playback.playbackRenderbuffer_);
 
       // Restore bindings to their original values.
+      gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
       gl.bindRenderbuffer(goog.webgl.RENDERBUFFER, originalRenderbuffer);
       gl.bindTexture(goog.webgl.TEXTURE_2D, originalActiveTexture);
-      gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
 
       // TODO(scotttodd): create drawTextureProgram_, setup vertices
       //     within attributes
       var program = gl.createProgram();
-      var drawTextureVertexSource = 'precision mediump float;' +
-          'attribute vec3 aVertexPosition;' +
+      var drawTextureVertexSource = 'attribute vec2 aVertexPosition;' +
           'attribute vec2 aTextureCoord;' +
           'varying vec2 vTextureCoord;' +
           'void main(void) {' +
           '  vTextureCoord = aTextureCoord;' +
-          '  gl_Position = vec4(aVertexPosition, 1.0);' +
+          '  gl_Position = vec4(aVertexPosition, 0.0, 1.0);' +
           '}';
       var drawTextureFragmentSource = 'precision mediump float;' +
           'varying vec2 vTextureCoord;' +
@@ -2447,17 +2559,19 @@ wtf.replay.graphics.Playback.CALLS_ = {
           goog.webgl.LINK_STATUS));
       playback.drawTextureProgram_ = program;
 
-      gl.detachShader(program, drawTextureVertexShader);
-      gl.detachShader(program, drawTextureFragmentShader);
-      gl.deleteShader(drawTextureVertexShader);
-      gl.deleteShader(drawTextureFragmentShader);
+      // Comment out for debugging.
+      // gl.detachShader(program, drawTextureVertexShader);
+      // gl.detachShader(program, drawTextureFragmentShader);
+      // gl.deleteShader(drawTextureVertexShader);
+      // gl.deleteShader(drawTextureFragmentShader);
 
-      var vertexAttribLocation = gl.getAttribLocation(program,
-          'aVertexPosition');
-      gl.enableVertexAttribArray(vertexAttribLocation);
-      var textureCoordAttribLocation = gl.getAttribLocation(program,
-          'aTextureCoord');
-      gl.enableVertexAttribArray(textureCoordAttribLocation);
+
+      // var vertexAttribLocation = gl.getAttribLocation(program,
+      //     'aVertexPosition');
+      // gl.enableVertexAttribArray(vertexAttribLocation);
+      // var textureCoordAttribLocation = gl.getAttribLocation(program,
+      //     'aTextureCoord');
+      // gl.enableVertexAttribArray(textureCoordAttribLocation);
 
       // Setup attributes aVertexPosition and aTextureCoord
       var originalArrayBuffer = gl.getParameter(
@@ -2465,28 +2579,81 @@ wtf.replay.graphics.Playback.CALLS_ = {
       playback.squareVertexPositionBuffer_ = gl.createBuffer();
       gl.bindBuffer(goog.webgl.ARRAY_BUFFER,
           playback.squareVertexPositionBuffer_);
+      // var vertices = [
+      //   1.0, 1.0, 0.0,
+      //   -1.0, 1.0, 0.0,
+      //   1.0, -1.0, 0.0,
+      //   -1.0, -1.0, 0.0];
+      // var vertices = [
+      //   0.0, 0.0,
+      //   1.0, 0.0,
+      //   0.0, 1.0,
+      //   0.0, 1.0,
+      //   1.0, 0.0,
+      //   1.0, 1.0];
       var vertices = [
-        1.0, 1.0, 0.0,
-        -1.0, 1.0, 0.0,
-        1.0, -1.0, 0.0,
-        -1.0, -1.0, 0.0];
+        -1.0, -1.0,
+        1.0, -1.0,
+        -1.0, 1.0,
+        -1.0, 1.0,
+        1.0, -1.0,
+        1.0, 1.0];
+      // var vertices = [
+      //   -427.0, -240.0,
+      //   427.0, -240.0,
+      //   -427.0, 240.0,
+      //   -427.0, 240.0,
+      //   427.0, -240.0,
+      //   427.0, 240.0];
       gl.bufferData(goog.webgl.ARRAY_BUFFER, new Float32Array(vertices),
           goog.webgl.STATIC_DRAW);
-      // gl.vertexAttribPointer(vertexAttribLocation, 3, goog.webgl.FLOAT, false,
-      //     0, 0);
+      // gl.vertexAttribPointer(vertexAttribLocation, 3, goog.webgl.FLOAT,
+      // false, 0, 0);
 
       playback.squareTextureCoordBuffer_ = gl.createBuffer();
       gl.bindBuffer(goog.webgl.ARRAY_BUFFER,
           playback.squareTextureCoordBuffer_);
+      // var textureCoords = [
+      //   1.0, 1.0,
+      //   0.0, 1.0,
+      //   1.0, 0.0,
+      //   0.0, 0.0];
       var textureCoords = [
-        1.0, 1.0,
+        0.0, 0.0,
+        1.0, 0.0,
+        0.0, 1.0,
         0.0, 1.0,
         1.0, 0.0,
-        0.0, 0.0];
+        1.0, 1.0];
       gl.bufferData(goog.webgl.ARRAY_BUFFER, new Float32Array(textureCoords),
           goog.webgl.STATIC_DRAW);
       // gl.vertexAttribPointer(textureCoordAttribLocation, 2, goog.webgl.FLOAT,
       //     false, 0, 0);
+
+
+      // // Setup vertex attribs at initialization?
+      // var originalProgram = /** @type {WebGLProgram} */ (
+      //     gl.getParameter(goog.webgl.CURRENT_PROGRAM));
+      // gl.useProgram(program);
+
+      // gl.bindBuffer(goog.webgl.ARRAY_BUFFER,
+      //     playback.squareVertexPositionBuffer_);
+      // var vertexAttribLocation = gl.getAttribLocation(program,
+      //     'aVertexPosition');
+      // gl.enableVertexAttribArray(vertexAttribLocation);
+      // gl.vertexAttribPointer(vertexAttribLocation, 2, goog.webgl.FLOAT, false,
+      //     0, 0);
+
+      // gl.bindBuffer(goog.webgl.ARRAY_BUFFER,
+      //     playback.squareTextureCoordBuffer_);
+      // var textureCoordAttribLocation = gl.getAttribLocation(
+      //     program, 'aTextureCoord');
+      // gl.enableVertexAttribArray(textureCoordAttribLocation);
+      // gl.vertexAttribPointer(textureCoordAttribLocation, 2, goog.webgl.FLOAT,
+      //     false, 0, 0);
+
+      // gl.useProgram(originalProgram);
+
 
       /*gl.useProgram(program);
 
