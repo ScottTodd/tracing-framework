@@ -1282,8 +1282,12 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   // Backup vertex attrib settings for the first location.
   var attribArrayEnabled1 = gl.getVertexAttrib(
       vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED);
-  var attribArraySize1, attribArrayType1, attribArrayNormalized1,
-      attribArrayStride1, attribArrayOffset1, attribArrayBufferBinding1;
+  var attribArraySize1 = 0;
+  var attribArrayType1 = 0;
+  var attribArrayNormalized1 = false;
+  var attribArrayStride1 = 0;
+  var attribArrayOffset1 = 0;
+  var attribArrayBufferBinding1 = null;
   if (attribArrayEnabled1) {
     attribArraySize1 = /** @type {number} */ (gl.getVertexAttrib(
         vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_SIZE));
@@ -1311,8 +1315,12 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   // Backup vertex attrib settings for the second location.
   var attribArrayEnabled2 = gl.getVertexAttrib(
       textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED);
-  var attribArraySize2, attribArrayType2, attribArrayNormalized2,
-      attribArrayStride2, attribArrayOffset2, attribArrayBufferBinding2;
+  var attribArraySize2 = 0;
+  var attribArrayType2 = 0;
+  var attribArrayNormalized2 = false;
+  var attribArrayStride2 = 0;
+  var attribArrayOffset2 = 0;
+  var attribArrayBufferBinding2 = null;
   if (attribArrayEnabled2) {
     attribArraySize2 = /** @type {number} */ (gl.getVertexAttrib(
         textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_SIZE));
@@ -1346,17 +1354,16 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   gl.disable(goog.webgl.BLEND);
   var cullFaceEnabled = gl.getParameter(goog.webgl.CULL_FACE);
   gl.disable(goog.webgl.CULL_FACE);
+  var frontFaceMode = /** @type {number} */ (gl.getParameter(
+      goog.webgl.FRONT_FACE));
+  gl.frontFace(goog.webgl.CCW);
+  var depthEnabled = gl.getParameter(goog.webgl.DEPTH_TEST);
+  gl.disable(goog.webgl.DEPTH_TEST);
+  var ditherEnabled = gl.getParameter(goog.webgl.DITHER);
+  gl.disable(goog.webgl.DITHER);
 
   // Draw the intermediate buffer to the main framebuffer.
   gl.drawArrays(goog.webgl.TRIANGLES, 0, 6);
-
-  // Restore additional states.
-  if (blendEnabled) {
-    gl.enable(goog.webgl.BLEND);
-  }
-  if (cullFaceEnabled) {
-    gl.enable(goog.webgl.CULL_FACE);
-  }
 
   // Restore vertex attrib settings.
   if (attribArrayEnabled1) {
@@ -1385,6 +1392,24 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   gl.bindBuffer(goog.webgl.ARRAY_BUFFER, originalArrayBuffer);
   gl.activeTexture(originalActiveTexture);
   gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
+
+  this.programCollection_[this.latestProgramHandle_].drawWithVariant(
+      drawFunction, 'highlight');
+
+  // Restore additional states.
+  if (blendEnabled) {
+    gl.enable(goog.webgl.BLEND);
+  }
+  if (cullFaceEnabled) {
+    gl.enable(goog.webgl.CULL_FACE);
+  }
+  if (depthEnabled) {
+    gl.enable(goog.webgl.DEPTH_TEST);
+  }
+  if (ditherEnabled) {
+    gl.enable(goog.webgl.DITHER);
+  }
+  gl.frontFace(frontFaceMode);
 };
 
 
