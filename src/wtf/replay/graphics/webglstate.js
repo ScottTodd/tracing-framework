@@ -102,6 +102,8 @@ goog.inherits(wtf.replay.graphics.WebGLState, goog.Disposable);
  * @override
  */
 wtf.replay.graphics.WebGLState.prototype.disposeInternal = function() {
+  // TODO(scotttodd): Determine if anything else belongs in here.
+
   goog.base(this, 'disposeInternal');
 };
 
