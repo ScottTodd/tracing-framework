@@ -1252,6 +1252,11 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   // Save current bindings to restore later.
   var originalFramebuffer = /** @type {WebGLFramebuffer} */ (
       gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING));
+  // Do not edit calls where the target is not the visible framebuffer.
+  if (originalFramebuffer != null) {
+    drawFunction();
+    return;
+  }
   var originalActiveTexture = /** @type {number} */ (
       gl.getParameter(goog.webgl.ACTIVE_TEXTURE));
   gl.activeTexture(goog.webgl.TEXTURE0);
@@ -1361,6 +1366,20 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   gl.disable(goog.webgl.DEPTH_TEST);
   var ditherEnabled = gl.getParameter(goog.webgl.DITHER);
   gl.disable(goog.webgl.DITHER);
+  var scissorEnabled = gl.getParameter(goog.webgl.SCISSOR_TEST);
+  gl.disable(goog.webgl.SCISSOR_TEST);
+  var stencilEnabled = gl.getParameter(goog.webgl.STENCIL_TEST);
+  gl.disable(goog.webgl.STENCIL_TEST);
+
+  // Disable instancing for attributes 0 and 1, if the extension exists.
+  var ext = gl.getExtension('ANGLE_instanced_arrays');
+  var instanced0, instanced1;
+  if (ext) {
+    instanced0 = gl.getVertexAttrib(0, 0x88FE);
+    ext['vertexAttribDivisorANGLE'](0, 0);
+    instanced1 = gl.getVertexAttrib(1, 0x88FE);
+    ext['vertexAttribDivisorANGLE'](1, 0);
+  }
 
   // Draw the intermediate buffer to the main framebuffer.
   gl.drawArrays(goog.webgl.TRIANGLES, 0, 6);
@@ -1387,14 +1406,10 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   }
 
   // Restore bindings to their original values.
-  gl.useProgram(originalProgram);
   gl.bindTexture(goog.webgl.TEXTURE_2D, originalTextureBinding);
   gl.bindBuffer(goog.webgl.ARRAY_BUFFER, originalArrayBuffer);
   gl.activeTexture(originalActiveTexture);
-  gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
-
-  this.programCollection_[this.latestProgramHandle_].drawWithVariant(
-      drawFunction, 'highlight');
+  gl.useProgram(originalProgram);
 
   // Restore additional states.
   if (blendEnabled) {
@@ -1409,7 +1424,20 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   if (ditherEnabled) {
     gl.enable(goog.webgl.DITHER);
   }
+  if (scissorEnabled) {
+    gl.enable(goog.webgl.SCISSOR_TEST);
+  }
+  if (stencilEnabled) {
+    gl.enable(goog.webgl.STENCIL_TEST);
+  }
+  if (ext) {
+    ext['vertexAttribDivisorANGLE'](0, instanced0);
+    ext['vertexAttribDivisorANGLE'](1, instanced1);
+  }
   gl.frontFace(frontFaceMode);
+
+  this.programCollection_[this.latestProgramHandle_].drawWithVariant(
+      drawFunction, 'highlight');
 };
 
 
@@ -1594,8 +1622,17 @@ wtf.replay.graphics.Playback.CALLS_ = {
       eventId, playback, gl, args, objs) {
     gl.clear(args['mask']);
     var originalFramebuffer = gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING);
+    if (originalFramebuffer != null) { return; }
+
     gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, playback.playbackFramebuffer_);
     gl.clear(args['mask']);
+    gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, null);
+    // var scissorEnabled = gl.getParameter(goog.webgl.SCISSOR_TEST);
+    // gl.disable(goog.webgl.SCISSOR_TEST);
+    gl.clear(args['mask']);
+    // if (scissorEnabled) {
+    //   gl.enable(goog.webgl.SCISSOR_TEST);
+    // }
     gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
   },
   'WebGLRenderingContext#clearColor': function(
