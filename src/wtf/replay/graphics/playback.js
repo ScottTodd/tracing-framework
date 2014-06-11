@@ -1323,11 +1323,8 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
 
   // Disable instancing for attributes 0 and 1, if the extension exists.
   var ext = gl.getExtension('ANGLE_instanced_arrays');
-  var instanced0, instanced1;
   if (ext) {
-    instanced0 = gl.getVertexAttrib(0, 0x88FE);
     ext['vertexAttribDivisorANGLE'](0, 0);
-    instanced1 = gl.getVertexAttrib(1, 0x88FE);
     ext['vertexAttribDivisorANGLE'](1, 0);
   }
 
@@ -1335,11 +1332,6 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   gl.drawArrays(goog.webgl.TRIANGLES, 0, 6);
 
   this.currentWebGLState_.restore();
-
-  if (ext) {
-    ext['vertexAttribDivisorANGLE'](0, instanced0);
-    ext['vertexAttribDivisorANGLE'](1, instanced1);
-  }
 
   this.programCollection_[this.latestProgramHandle_].drawWithVariant(
       drawFunction, 'highlight');

@@ -241,6 +241,9 @@ wtf.replay.graphics.WebGLState.prototype.backup = function() {
     goog.webgl.CURRENT_VERTEX_ATTRIB];
   var maxVertexAttribs = /** @type {number} */ (gl.getParameter(
       goog.webgl.MAX_VERTEX_ATTRIBS));
+  // Backup instancing on attributes as well, if the extension exists.
+  // http://www.khronos.org/registry/webgl/extensions/ANGLE_instanced_arrays/
+  var instancedArraysExt = gl.getExtension('ANGLE_instanced_arrays');
   for (var i = 0; i < maxVertexAttribs; i++) {
     var values = {};
     var numAttribPropertyEnums = attribPropertyEnums.length;
@@ -250,6 +253,10 @@ wtf.replay.graphics.WebGLState.prototype.backup = function() {
     }
     values[0] = gl.getVertexAttribOffset(i,
         goog.webgl.VERTEX_ATTRIB_ARRAY_POINTER);
+    if (instancedArraysExt) {
+      values[1] = gl.getVertexAttrib(i,
+          instancedArraysExt.VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE);
+    }
     this.savedAttributes_.push(values);
   }
 
@@ -367,6 +374,7 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
 
   // Restore attributes.
   var numSavedAttributes = this.savedAttributes_.length;
+  var instancedArraysExt = gl.getExtension('ANGLE_instanced_arrays');
   for (var i = 0; i < numSavedAttributes; i++) {
     var values = this.savedAttributes_[i];
 
@@ -385,6 +393,9 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
           values[goog.webgl.VERTEX_ATTRIB_ARRAY_NORMALIZED],
           values[goog.webgl.VERTEX_ATTRIB_ARRAY_STRIDE],
           values[0]);
+      if (instancedArraysExt) {
+        instancedArraysExt['vertexAttribDivisorANGLE'](i, values[1]);
+      }
     }
   }
 };
