@@ -1291,69 +1291,17 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
 
   gl.useProgram(this.drawTextureProgram_);
 
+  // Change vertex attrib settings.
   var vertexAttribLocation = gl.getAttribLocation(this.drawTextureProgram_,
       'aVertexPosition');
-
-  // Backup vertex attrib settings for the first location.
-  var attribArrayEnabled1 = gl.getVertexAttrib(
-      vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED);
-  var attribArraySize1 = 0;
-  var attribArrayType1 = 0;
-  var attribArrayNormalized1 = false;
-  var attribArrayStride1 = 0;
-  var attribArrayOffset1 = 0;
-  var attribArrayBufferBinding1 = null;
-  if (attribArrayEnabled1) {
-    attribArraySize1 = /** @type {number} */ (gl.getVertexAttrib(
-        vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_SIZE));
-    attribArrayType1 = /** @type {number} */ (gl.getVertexAttrib(
-        vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_TYPE));
-    attribArrayNormalized1 = /** @type {boolean} */ (gl.getVertexAttrib(
-        vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_NORMALIZED));
-    attribArrayStride1 = /** @type {number} */ (gl.getVertexAttrib(
-        vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_STRIDE));
-    attribArrayOffset1 = /** @type {number} */ (gl.getVertexAttribOffset(
-        vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_POINTER));
-    attribArrayBufferBinding1 = /** @type {WebGLBuffer} */ (gl.getVertexAttrib(
-        vertexAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING));
-  }
-
-  // Change vertex attrib settings.
   gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this.squareVertexPositionBuffer_);
   gl.enableVertexAttribArray(vertexAttribLocation);
   gl.vertexAttribPointer(vertexAttribLocation, 2, goog.webgl.FLOAT, false,
       0, 0);
 
+  // Change texture coord attrib settings.
   var textureCoordAttribLocation = gl.getAttribLocation(
       this.drawTextureProgram_, 'aTextureCoord');
-
-  // Backup vertex attrib settings for the second location.
-  var attribArrayEnabled2 = gl.getVertexAttrib(
-      textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED);
-  var attribArraySize2 = 0;
-  var attribArrayType2 = 0;
-  var attribArrayNormalized2 = false;
-  var attribArrayStride2 = 0;
-  var attribArrayOffset2 = 0;
-  var attribArrayBufferBinding2 = null;
-  if (attribArrayEnabled2) {
-    attribArraySize2 = /** @type {number} */ (gl.getVertexAttrib(
-        textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_SIZE));
-    attribArrayType2 = /** @type {number} */ (gl.getVertexAttrib(
-        textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_TYPE));
-    attribArrayNormalized2 = /** @type {boolean} */ (gl.getVertexAttrib(
-        textureCoordAttribLocation,
-        goog.webgl.VERTEX_ATTRIB_ARRAY_NORMALIZED));
-    attribArrayStride2 = /** @type {number} */ (gl.getVertexAttrib(
-        textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_STRIDE));
-    attribArrayOffset2 = /** @type {number} */ (gl.getVertexAttribOffset(
-        textureCoordAttribLocation, goog.webgl.VERTEX_ATTRIB_ARRAY_POINTER));
-    attribArrayBufferBinding2 = /** @type {WebGLBuffer} */ (gl.getVertexAttrib(
-        textureCoordAttribLocation,
-        goog.webgl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING));
-  }
-
-  // Change texture coord attrib settings.
   gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this.squareTextureCoordBuffer_);
   gl.enableVertexAttribArray(textureCoordAttribLocation);
   gl.vertexAttribPointer(textureCoordAttribLocation, 2, goog.webgl.FLOAT,
@@ -1385,27 +1333,6 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
 
   // Draw the intermediate buffer to the main framebuffer.
   gl.drawArrays(goog.webgl.TRIANGLES, 0, 6);
-
-  // Restore vertex attrib settings.
-  if (attribArrayEnabled1) {
-    gl.enableVertexAttribArray(vertexAttribLocation);
-    gl.bindBuffer(goog.webgl.ARRAY_BUFFER, attribArrayBufferBinding1);
-    gl.vertexAttribPointer(vertexAttribLocation, attribArraySize1,
-        attribArrayType1, attribArrayNormalized1, attribArrayStride1,
-        attribArrayOffset1);
-  } else {
-    gl.disableVertexAttribArray(vertexAttribLocation);
-  }
-  // Restore texture coord attrib settings.
-  if (attribArrayEnabled2) {
-    gl.enableVertexAttribArray(textureCoordAttribLocation);
-    gl.bindBuffer(goog.webgl.ARRAY_BUFFER, attribArrayBufferBinding2);
-    gl.vertexAttribPointer(textureCoordAttribLocation, attribArraySize2,
-        attribArrayType2, attribArrayNormalized2, attribArrayStride2,
-        attribArrayOffset2);
-  } else {
-    gl.disableVertexAttribArray(textureCoordAttribLocation);
-  }
 
   this.currentWebGLState_.restore();
 

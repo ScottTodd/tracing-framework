@@ -53,7 +53,7 @@ wtf.replay.graphics.WebGLState = function(gl) {
 
   /**
    * Backup of states from stateParameters_. Mapping from enum to value.
-   * @type {Object.<number, *>}
+   * @type {Object.<number, ?>}
    * @private
    */
   this.savedState_ = {};
@@ -76,17 +76,24 @@ wtf.replay.graphics.WebGLState = function(gl) {
 
   /**
    * Backup of texture binding 2Ds. Mapping from texture unit to texture.
-   * @type {Object.<number, WebGLTexture>}
+   * @type {Array.<WebGLTexture>}
    * @private
    */
-  this.savedTextureBinding2Ds_ = {};
+  this.savedTextureBinding2Ds_ = [];
 
   /**
    * Backup of texture binding cube maps. Mapping from texture unit to texture.
-   * @type {Object.<number, WebGLTexture>}
+   * @type {Array.<WebGLTexture>}
    * @private
    */
-  this.savedTextureBindingCubeMaps_ = {};
+  this.savedTextureBindingCubeMaps_ = [];
+
+  //  * @type {Object.<number, WebGLTexture>}
+  /**
+   * Backup of attributes.
+   * @private
+   */
+  this.savedAttributes_ = {};
 };
 goog.inherits(wtf.replay.graphics.WebGLState, goog.Disposable);
 
@@ -209,15 +216,42 @@ wtf.replay.graphics.WebGLState.prototype.backup = function() {
 
   // Backup texture bindings.
   // TODO(scotttodd): Support parameterized number of texture units to backup?
-  var maxTextureUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
+  var maxTextureUnits = /** @type {number} */ (gl.getParameter(
+      gl.MAX_TEXTURE_IMAGE_UNITS));
+  this.savedTextureBinding2Ds_ = [];
+  this.savedTextureBindingCubeMaps_ = [];
   for (var i = 0; i < maxTextureUnits; i++) {
     gl.activeTexture(goog.webgl.TEXTURE0 + i);
-    this.savedTextureBinding2Ds_[i] = gl.getParameter(
-        goog.webgl.TEXTURE_BINDING_2D);
-    this.savedTextureBindingCubeMaps_[i] = gl.getParameter(
-        goog.webgl.TEXTURE_BINDING_CUBE_MAP);
+    this.savedTextureBinding2Ds_.push(gl.getParameter(
+        goog.webgl.TEXTURE_BINDING_2D));
+    this.savedTextureBindingCubeMaps_.push(gl.getParameter(
+        goog.webgl.TEXTURE_BINDING_CUBE_MAP));
   }
   gl.activeTexture(this.savedState_[goog.webgl.ACTIVE_TEXTURE]);
+
+  // Backup attributes.
+  this.savedAttributes_ = [];
+  var attribPropertyEnums = [
+    goog.webgl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING,
+    goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED,
+    goog.webgl.VERTEX_ATTRIB_ARRAY_SIZE,
+    goog.webgl.VERTEX_ATTRIB_ARRAY_STRIDE,
+    goog.webgl.VERTEX_ATTRIB_ARRAY_TYPE,
+    goog.webgl.VERTEX_ATTRIB_ARRAY_NORMALIZED,
+    goog.webgl.CURRENT_VERTEX_ATTRIB];
+  var maxVertexAttribs = /** @type {number} */ (gl.getParameter(
+      goog.webgl.MAX_VERTEX_ATTRIBS));
+  for (var i = 0; i < maxVertexAttribs; i++) {
+    var values = {};
+    var numAttribPropertyEnums = attribPropertyEnums.length;
+    for (var j = 0; j < numAttribPropertyEnums; j++) {
+      values[attribPropertyEnums[j]] = gl.getVertexAttrib(i,
+          attribPropertyEnums[j]);
+    }
+    values[0] = gl.getVertexAttribOffset(i,
+        goog.webgl.VERTEX_ATTRIB_ARRAY_POINTER);
+    this.savedAttributes_.push(values);
+  }
 
   this.backupStored_ = true;
 };
@@ -321,7 +355,8 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
   gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 
   // Restore texture bindings
-  var maxTextureUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
+  var maxTextureUnits = /** @type {number} */ (gl.getParameter(
+      gl.MAX_TEXTURE_IMAGE_UNITS));
   for (var i = 0; i < maxTextureUnits; i++) {
     gl.activeTexture(goog.webgl.TEXTURE0 + i);
     gl.bindTexture(goog.webgl.TEXTURE_2D, this.savedTextureBinding2Ds_[i]);
@@ -329,4 +364,27 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
         this.savedTextureBindingCubeMaps_[i]);
   }
   gl.activeTexture(this.savedState_[goog.webgl.ACTIVE_TEXTURE]);
+
+  // Restore attributes.
+  var numSavedAttributes = this.savedAttributes_.length;
+  for (var i = 0; i < numSavedAttributes; i++) {
+    var values = this.savedAttributes_[i];
+
+    values[goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED] ?
+        gl.enableVertexAttribArray(i) : gl.disableVertexAttribArray(i);
+
+    if (values[goog.webgl.CURRENT_VERTEX_ATTRIB]) {
+      gl.vertexAttrib4fv(i, values[goog.webgl.CURRENT_VERTEX_ATTRIB]);
+    }
+    var buffer = values[goog.webgl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING];
+    if (buffer) {
+      gl.bindBuffer(goog.webgl.ARRAY_BUFFER, buffer);
+      gl.vertexAttribPointer(i,
+          values[goog.webgl.VERTEX_ATTRIB_ARRAY_SIZE],
+          values[goog.webgl.VERTEX_ATTRIB_ARRAY_TYPE],
+          values[goog.webgl.VERTEX_ATTRIB_ARRAY_NORMALIZED],
+          values[goog.webgl.VERTEX_ATTRIB_ARRAY_STRIDE],
+          values[0]);
+    }
+  }
 };
