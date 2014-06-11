@@ -27,6 +27,7 @@ goog.require('wtf.events.EventEmitter');
 goog.require('wtf.replay.graphics.ExtensionManager');
 goog.require('wtf.replay.graphics.Program');
 goog.require('wtf.replay.graphics.Step');
+goog.require('wtf.replay.graphics.WebGLState');
 goog.require('wtf.timing.util');
 
 
@@ -137,6 +138,13 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
    * @private
    */
   this.latestProgramHandle_ = 0;
+
+  /**
+   * A mapping of handles from event arguments to WebGLState backup utilities.
+   * @type {Object.<!wtf.replay.graphics.WebGLState>}
+   * @private
+   */
+  this.webGLStates_ = {};
 
   /**
    * An intermediate framebuffer for rendering the playback into.
@@ -258,6 +266,13 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
    * @private
    */
   this.currentContext_ = null;
+
+  /**
+   * The current context's WebGLState.
+   * @type {wtf.replay.graphics.WebGLState}
+   * @private
+   */
+  this.currentWebGLState_ = null;
 
   /**
    * Attribute values that override those of created contexts.
@@ -1257,11 +1272,14 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
     drawFunction();
     return;
   }
-  var originalActiveTexture = /** @type {number} */ (
-      gl.getParameter(goog.webgl.ACTIVE_TEXTURE));
+
+  this.currentWebGLState_.backup();
+
+  // var originalActiveTexture = /** @type {number} */ (
+  //     gl.getParameter(goog.webgl.ACTIVE_TEXTURE));
   gl.activeTexture(goog.webgl.TEXTURE0);
-  var originalTextureBinding = /** @type {WebGLTexture} */ (
-      gl.getParameter(goog.webgl.TEXTURE_BINDING_2D));
+  // var originalTextureBinding = /** @type {WebGLTexture} */ (
+  //     gl.getParameter(goog.webgl.TEXTURE_BINDING_2D));
   var originalProgram = /** @type {WebGLProgram} */ (
       gl.getParameter(goog.webgl.CURRENT_PROGRAM));
   var originalArrayBuffer = /** @type {WebGLBuffer} */ (gl.getParameter(
@@ -1405,10 +1423,12 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
     gl.disableVertexAttribArray(textureCoordAttribLocation);
   }
 
+  this.currentWebGLState_.restore();
+
   // Restore bindings to their original values.
-  gl.bindTexture(goog.webgl.TEXTURE_2D, originalTextureBinding);
+  // gl.bindTexture(goog.webgl.TEXTURE_2D, originalTextureBinding);
   gl.bindBuffer(goog.webgl.ARRAY_BUFFER, originalArrayBuffer);
-  gl.activeTexture(originalActiveTexture);
+  // gl.activeTexture(originalActiveTexture);
   gl.useProgram(originalProgram);
 
   // Restore additional states.
@@ -2490,6 +2510,10 @@ wtf.replay.graphics.Playback.CALLS_ = {
       playback.contexts_[contextHandle] =
           /** @type {WebGLRenderingContext} */ (gl);
 
+      // Create and store a WebGLState object for this context.
+      playback.webGLStates_[contextHandle] = (
+          new wtf.replay.graphics.WebGLState(gl));
+
       // Save current bindings to restore later.
       var originalFramebuffer = gl.getParameter(
           goog.webgl.FRAMEBUFFER_BINDING);
@@ -2630,6 +2654,7 @@ wtf.replay.graphics.Playback.CALLS_ = {
     }
 
     playback.currentContext_ = gl;
+    playback.currentWebGLState_ = playback.webGLStates_[contextHandle];
     gl.viewport(0, 0, width, height);
 
     playback.emitEvent(wtf.replay.graphics.Playback.EventType.CONTEXT_SET,
