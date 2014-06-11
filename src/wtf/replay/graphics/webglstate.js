@@ -45,6 +45,20 @@ wtf.replay.graphics.WebGLState = function(gl) {
   this.backupStored_ = false;
 
   /**
+   * All WebGL state parameter enums used.
+   * @type {Array.<number>}
+   * @private
+   */
+  this.stateParameters_ = [];
+
+  /**
+   * Backup of states from stateParameters_. Mapping from enum to value.
+   * @type {Object.<number, *>}
+   * @private
+   */
+  this.savedState_ = {};
+
+  /**
    * All WebGL state enums that are used with gl.enable and gl.disable.
    * @type {Array.<number>}
    * @private
@@ -59,20 +73,6 @@ wtf.replay.graphics.WebGLState = function(gl) {
     // goog.webgl.SAMPLE_COVERAGE, // SAMPLE_COVERAGE_VALUE?
     goog.webgl.SCISSOR_TEST,
     goog.webgl.STENCIL_TEST];
-
-  /**
-   * Backup of states in toggleStates_. Mapping from enum to enabled/disabled.
-   * @type {Object.<number, boolean>}
-   * @private
-   */
-  this.savedToggleStates_ = {};
-
-  /**
-   * Backup of the active texture unit. Mapping from enum to enabled/disabled.
-   * @type {Object.<number, boolean>}
-   * @private
-   */
-  this.savedActiveTexture_ = null;
 
   /**
    * Backup of texture binding 2Ds. Mapping from texture unit to texture.
@@ -100,22 +100,115 @@ wtf.replay.graphics.WebGLState.prototype.disposeInternal = function() {
 
 
 /**
+ * Setup stateParameters_. Delay calling this until needed.
+ * @private
+ */
+wtf.replay.graphics.WebGLState.prototype.setupStateParameters_ = function() {
+  this.stateParameters_ = [
+    goog.webgl.ACTIVE_TEXTURE,
+    goog.webgl.ALIASED_LINE_WIDTH_RANGE,
+    goog.webgl.ALIASED_POINT_SIZE_RANGE,
+    goog.webgl.ALPHA_BITS,
+    goog.webgl.ARRAY_BUFFER_BINDING,
+    goog.webgl.BLEND,
+    goog.webgl.BLEND_COLOR,
+    goog.webgl.BLEND_DST_ALPHA,
+    goog.webgl.BLEND_DST_RGB,
+    goog.webgl.BLEND_EQUATION_ALPHA,
+    goog.webgl.BLEND_EQUATION_RGB,
+    goog.webgl.BLEND_SRC_ALPHA,
+    goog.webgl.BLEND_SRC_RGB,
+    goog.webgl.BLUE_BITS,
+    goog.webgl.COLOR_CLEAR_VALUE,
+    goog.webgl.COLOR_WRITEMASK,
+    goog.webgl.CULL_FACE,
+    goog.webgl.CULL_FACE_MODE,
+    goog.webgl.CURRENT_PROGRAM,
+    goog.webgl.DEPTH_BITS,
+    goog.webgl.DEPTH_CLEAR_VALUE,
+    goog.webgl.DEPTH_FUNC,
+    goog.webgl.DEPTH_RANGE,
+    goog.webgl.DEPTH_TEST,
+    goog.webgl.DEPTH_WRITEMASK,
+    goog.webgl.DITHER,
+    goog.webgl.ELEMENT_ARRAY_BUFFER_BINDING,
+    goog.webgl.FRAMEBUFFER_BINDING,
+    goog.webgl.FRONT_FACE,
+    goog.webgl.GENERATE_MIPMAP_HINT,
+    goog.webgl.GREEN_BITS,
+    goog.webgl.LINE_WIDTH,
+    goog.webgl.MAX_COMBINED_TEXTURE_IMAGE_UNITS,
+    goog.webgl.MAX_CUBE_MAP_TEXTURE_SIZE,
+    goog.webgl.MAX_FRAGMENT_UNIFORM_VECTORS,
+    goog.webgl.MAX_RENDERBUFFER_SIZE,
+    goog.webgl.MAX_TEXTURE_IMAGE_UNITS,
+    goog.webgl.MAX_TEXTURE_SIZE,
+    goog.webgl.MAX_VARYING_VECTORS,
+    goog.webgl.MAX_VERTEX_ATTRIBS,
+    goog.webgl.MAX_VERTEX_TEXTURE_IMAGE_UNITS,
+    goog.webgl.MAX_VERTEX_UNIFORM_VECTORS,
+    goog.webgl.MAX_VIEWPORT_DIMS,
+    goog.webgl.PACK_ALIGNMENT,
+    goog.webgl.POLYGON_OFFSET_FACTOR,
+    goog.webgl.POLYGON_OFFSET_FILL,
+    goog.webgl.POLYGON_OFFSET_UNITS,
+    goog.webgl.RED_BITS,
+    goog.webgl.RENDERBUFFER_BINDING,
+    goog.webgl.RENDERER,
+    goog.webgl.SAMPLE_BUFFERS,
+    goog.webgl.SAMPLE_COVERAGE_INVERT,
+    goog.webgl.SAMPLE_COVERAGE_VALUE,
+    goog.webgl.SAMPLES,
+    goog.webgl.SCISSOR_BOX,
+    goog.webgl.SCISSOR_TEST,
+    goog.webgl.SHADING_LANGUAGE_VERSION,
+    goog.webgl.STENCIL_BACK_FAIL,
+    goog.webgl.STENCIL_BACK_FUNC,
+    goog.webgl.STENCIL_BACK_PASS_DEPTH_FAIL,
+    goog.webgl.STENCIL_BACK_PASS_DEPTH_PASS,
+    goog.webgl.STENCIL_BACK_REF,
+    goog.webgl.STENCIL_BACK_VALUE_MASK,
+    goog.webgl.STENCIL_BACK_WRITEMASK,
+    goog.webgl.STENCIL_BITS,
+    goog.webgl.STENCIL_CLEAR_VALUE,
+    goog.webgl.STENCIL_FAIL,
+    goog.webgl.STENCIL_FUNC,
+    goog.webgl.STENCIL_PASS_DEPTH_FAIL,
+    goog.webgl.STENCIL_PASS_DEPTH_PASS,
+    goog.webgl.STENCIL_REF,
+    goog.webgl.STENCIL_TEST,
+    goog.webgl.STENCIL_VALUE_MASK,
+    goog.webgl.STENCIL_WRITEMASK,
+    goog.webgl.SUBPIXEL_BITS,
+    goog.webgl.UNPACK_ALIGNMENT,
+    goog.webgl.UNPACK_COLORSPACE_CONVERSION_WEBGL,
+    goog.webgl.UNPACK_FLIP_Y_WEBGL,
+    goog.webgl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,
+    goog.webgl.VENDOR,
+    goog.webgl.VERSION,
+    goog.webgl.VIEWPORT];
+};
+
+
+/**
  * Backup selected portions of the current WebGL state.
  */
 wtf.replay.graphics.WebGLState.prototype.backup = function() {
+  if (this.stateParameters_.length == 0) {
+    this.setupStateParameters_();
+  }
+
   var gl = this.context_;
 
-  // Backup toggleable states.
-  var toggleStatesLength = this.toggleStates_.length;
-  for (var i = 0; i < toggleStatesLength; i++) {
-    var toggleState = this.toggleStates_[i];
-    this.savedToggleStates_[toggleState] = gl.getParameter(toggleState);
+  // Backup parameters with simple enum values.
+  var numParameters = this.stateParameters_.length;
+  for (var i = 0; i < numParameters; i++) {
+    var parameter = this.stateParameters_[i];
+    this.savedState_[parameter] = gl.getParameter(parameter);
   }
 
   // Backup texture bindings.
-  // TODO(scotttodd): Support parameterized number of texture units to backup.
-  this.savedActiveTexture_ = /** @type {number} */ (gl.getParameter(
-      goog.webgl.ACTIVE_TEXTURE));
+  // TODO(scotttodd): Support parameterized number of texture units to backup?
   var maxTextureUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
   for (var i = 0; i < maxTextureUnits; i++) {
     gl.activeTexture(goog.webgl.TEXTURE0 + i);
@@ -124,7 +217,7 @@ wtf.replay.graphics.WebGLState.prototype.backup = function() {
     this.savedTextureBindingCubeMaps_[i] = gl.getParameter(
         goog.webgl.TEXTURE_BINDING_CUBE_MAP);
   }
-  gl.activeTexture(this.savedActiveTexture_);
+  gl.activeTexture(this.savedState_[goog.webgl.ACTIVE_TEXTURE]);
 
   this.backupStored_ = true;
 };
@@ -134,15 +227,98 @@ wtf.replay.graphics.WebGLState.prototype.backup = function() {
  * Restore the portions of the WebGL state that were saved.
  */
 wtf.replay.graphics.WebGLState.prototype.restore = function() {
+  // Cannot restore without a backup.
   goog.asserts.assert(this.backupStored_);
 
   var gl = this.context_;
 
   // Restore toggleable states.
-  for (var savedState in this.savedToggleStates_) {
-    this.savedToggleStates_[savedState] ?
-        gl.enable(savedState) : gl.disable(savedState);
+  var toggleStatesLength = this.toggleStates_.length;
+  for (var i = 0; i < toggleStatesLength; i++) {
+    var toggleState = this.toggleStates_[i];
+    this.savedState_[toggleState] ?
+        gl.enable(toggleState) : gl.disable(toggleState);
   }
+
+  // Restore other parameter states in alphabetic order.
+  gl.bindBuffer(goog.webgl.ARRAY_BUFFER,
+      this.savedState_[goog.webgl.ARRAY_BUFFER_BINDING]);
+  gl.bindBuffer(goog.webgl.ELEMENT_ARRAY_BUFFER,
+      this.savedState_[goog.webgl.ELEMENT_ARRAY_BUFFER_BINDING]);
+  gl.bindFramebuffer(goog.webgl.FRAMEBUFFER,
+      this.savedState_[goog.webgl.FRAMEBUFFER_BINDING]);
+  gl.bindRenderbuffer(goog.webgl.RENDERBUFFER,
+      this.savedState_[goog.webgl.RENDERBUFFER_BINDING]);
+
+  var blendColor = this.savedState_[goog.webgl.BLEND_COLOR];
+  gl.blendColor(blendColor[0], blendColor[1], blendColor[2], blendColor[3]);
+  gl.blendEquationSeparate(this.savedState_[goog.webgl.BLEND_EQUATION_RGB],
+      this.savedState_[goog.webgl.BLEND_EQUATION_ALPHA]);
+  gl.blendFuncSeparate(this.savedState_[goog.webgl.BLEND_SRC_RGB],
+      this.savedState_[goog.webgl.BLEND_DST_RGB],
+      this.savedState_[goog.webgl.BLEND_SRC_ALPHA],
+      this.savedState_[goog.webgl.BLEND_DST_ALPHA]);
+
+  var clearColor = this.savedState_[goog.webgl.COLOR_CLEAR_VALUE];
+  gl.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+  gl.clearDepth(this.savedState_[goog.webgl.DEPTH_CLEAR_VALUE]);
+  var colorMask = this.savedState_[goog.webgl.COLOR_WRITEMASK];
+  gl.colorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
+  gl.clearDepth(this.savedState_[goog.webgl.DEPTH_CLEAR_VALUE]);
+  gl.clearStencil(this.savedState_[goog.webgl.STENCIL_CLEAR_VALUE]);
+  gl.cullFace(this.savedState_[goog.webgl.CULL_FACE_MODE]);
+  gl.depthFunc(this.savedState_[goog.webgl.DEPTH_FUNC]);
+  var depthRange = this.savedState_[goog.webgl.DEPTH_RANGE];
+  gl.depthRange(depthRange[0], depthRange[1]);
+  gl.depthMask(this.savedState_[goog.webgl.DEPTH_WRITEMASK]);
+
+  gl.frontFace(this.savedState_[goog.webgl.FRONT_FACE]);
+  gl.hint(goog.webgl.GENERATE_MIPMAP_HINT,
+      this.savedState_[goog.webgl.GENERATE_MIPMAP_HINT]);
+  gl.lineWidth(this.savedState_[goog.webgl.LINE_WIDTH]);
+
+  gl.pixelStorei(goog.webgl.PACK_ALIGNMENT,
+      this.savedState_[goog.webgl.PACK_ALIGNMENT]);
+  gl.pixelStorei(goog.webgl.UNPACK_ALIGNMENT,
+      this.savedState_[goog.webgl.UNPACK_ALIGNMENT]);
+  gl.pixelStorei(goog.webgl.UNPACK_FLIP_Y_WEBGL,
+      this.savedState_[goog.webgl.UNPACK_FLIP_Y_WEBGL]);
+  // Maybe not supported in all browsers?
+  // gl.pixelStorei(goog.webgl.UNPACK_COLORSPACE_CONVERSION_WEBGL,
+  //     this.savedState_[goog.webgl.UNPACK_COLORSPACE_CONVERSION_WEBGL]);
+  gl.pixelStorei(goog.webgl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,
+      this.savedState_[goog.webgl.UNPACK_PREMULTIPLY_ALPHA_WEBGL]);
+
+  gl.sampleCoverage(this.savedState_[goog.webgl.SAMPLE_COVERAGE_VALUE],
+      this.savedState_[goog.webgl.SAMPLE_COVERAGE_INVERT]);
+  var scissorBox = this.savedState_[goog.webgl.SCISSOR_BOX];
+  gl.scissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3]);
+
+  gl.stencilFuncSeparate(goog.webgl.FRONT,
+      this.savedState_[goog.webgl.STENCIL_FUNC],
+      this.savedState_[goog.webgl.STENCIL_REF],
+      this.savedState_[goog.webgl.STENCIL_VALUE_MASK]);
+  gl.stencilFuncSeparate(goog.webgl.BACK,
+      this.savedState_[goog.webgl.STENCIL_BACK_FUNC],
+      this.savedState_[goog.webgl.STENCIL_BACK_REF],
+      this.savedState_[goog.webgl.STENCIL_BACK_VALUE_MASK]);
+  gl.stencilOpSeparate(goog.webgl.FRONT,
+      this.savedState_[goog.webgl.STENCIL_FAIL],
+      this.savedState_[goog.webgl.STENCIL_PASS_DEPTH_FAIL],
+      this.savedState_[goog.webgl.STENCIL_PASS_DEPTH_PASS]);
+  gl.stencilOpSeparate(goog.webgl.BACK,
+      this.savedState_[goog.webgl.STENCIL_BACK_FAIL],
+      this.savedState_[goog.webgl.STENCIL_BACK_PASS_DEPTH_FAIL],
+      this.savedState_[goog.webgl.STENCIL_BACK_PASS_DEPTH_PASS]);
+  gl.stencilMaskSeparate(goog.webgl.FRONT,
+      this.savedState_[goog.webgl.STENCIL_WRITEMASK]);
+  gl.stencilMaskSeparate(goog.webgl.BACK,
+      this.savedState_[goog.webgl.STENCIL_BACK_WRITEMASK]);
+
+  gl.useProgram(this.savedState_[goog.webgl.CURRENT_PROGRAM]);
+
+  var viewport = this.savedState_[goog.webgl.VIEWPORT];
+  gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 
   // Restore texture bindings
   var maxTextureUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
@@ -152,5 +328,5 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
     gl.bindTexture(goog.webgl.TEXTURE_CUBE_MAP,
         this.savedTextureBindingCubeMaps_[i]);
   }
-  gl.activeTexture(this.savedActiveTexture_);
+  gl.activeTexture(this.savedState_[goog.webgl.ACTIVE_TEXTURE]);
 };

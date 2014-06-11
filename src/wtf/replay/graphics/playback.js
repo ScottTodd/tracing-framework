@@ -1275,15 +1275,7 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
 
   this.currentWebGLState_.backup();
 
-  // var originalActiveTexture = /** @type {number} */ (
-  //     gl.getParameter(goog.webgl.ACTIVE_TEXTURE));
   gl.activeTexture(goog.webgl.TEXTURE0);
-  // var originalTextureBinding = /** @type {WebGLTexture} */ (
-  //     gl.getParameter(goog.webgl.TEXTURE_BINDING_2D));
-  var originalProgram = /** @type {WebGLProgram} */ (
-      gl.getParameter(goog.webgl.CURRENT_PROGRAM));
-  var originalArrayBuffer = /** @type {WebGLBuffer} */ (gl.getParameter(
-      goog.webgl.ARRAY_BUFFER_BINDING));
 
   gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, this.playbackFramebuffer_);
 
@@ -1372,21 +1364,13 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   gl.bindTexture(goog.webgl.TEXTURE_2D, this.playbackRTT_);
   gl.uniform1i(uniformLocation, 0);
 
-  // Backup additional states.
-  var blendEnabled = gl.getParameter(goog.webgl.BLEND);
+  // Change states prior to drawing.
   gl.disable(goog.webgl.BLEND);
-  var cullFaceEnabled = gl.getParameter(goog.webgl.CULL_FACE);
   gl.disable(goog.webgl.CULL_FACE);
-  var frontFaceMode = /** @type {number} */ (gl.getParameter(
-      goog.webgl.FRONT_FACE));
   gl.frontFace(goog.webgl.CCW);
-  var depthEnabled = gl.getParameter(goog.webgl.DEPTH_TEST);
   gl.disable(goog.webgl.DEPTH_TEST);
-  var ditherEnabled = gl.getParameter(goog.webgl.DITHER);
   gl.disable(goog.webgl.DITHER);
-  var scissorEnabled = gl.getParameter(goog.webgl.SCISSOR_TEST);
   gl.disable(goog.webgl.SCISSOR_TEST);
-  var stencilEnabled = gl.getParameter(goog.webgl.STENCIL_TEST);
   gl.disable(goog.webgl.STENCIL_TEST);
 
   // Disable instancing for attributes 0 and 1, if the extension exists.
@@ -1425,36 +1409,10 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
 
   this.currentWebGLState_.restore();
 
-  // Restore bindings to their original values.
-  // gl.bindTexture(goog.webgl.TEXTURE_2D, originalTextureBinding);
-  gl.bindBuffer(goog.webgl.ARRAY_BUFFER, originalArrayBuffer);
-  // gl.activeTexture(originalActiveTexture);
-  gl.useProgram(originalProgram);
-
-  // Restore additional states.
-  if (blendEnabled) {
-    gl.enable(goog.webgl.BLEND);
-  }
-  if (cullFaceEnabled) {
-    gl.enable(goog.webgl.CULL_FACE);
-  }
-  if (depthEnabled) {
-    gl.enable(goog.webgl.DEPTH_TEST);
-  }
-  if (ditherEnabled) {
-    gl.enable(goog.webgl.DITHER);
-  }
-  if (scissorEnabled) {
-    gl.enable(goog.webgl.SCISSOR_TEST);
-  }
-  if (stencilEnabled) {
-    gl.enable(goog.webgl.STENCIL_TEST);
-  }
   if (ext) {
     ext['vertexAttribDivisorANGLE'](0, instanced0);
     ext['vertexAttribDivisorANGLE'](1, instanced1);
   }
-  gl.frontFace(frontFaceMode);
 
   this.programCollection_[this.latestProgramHandle_].drawWithVariant(
       drawFunction, 'highlight');
