@@ -34,7 +34,7 @@ wtf.replay.graphics.Program_test =
     // Create a test shader program.
     testProgram = context.createProgram();
     var testVertexSource = 'precision mediump float;' +
-        'attribute vec3 aVertexPosition; ' +
+        'attribute vec3 aVertexPosition;' +
         'attribute vec4 aVertexColor;' +
         'uniform mat4 uMVMatrix;' +
         'uniform mat4 uPMatrix;' +
