@@ -607,6 +607,7 @@ wtf.replay.graphics.Playback.prototype.clearWebGlObjects_ = function(
 wtf.replay.graphics.Playback.prototype.clearProgramsCache = function() {
   var programs = this.programs_;
   for (var handle in programs) {
+    this.deleteProgram(handle);
     this.clearGpuResource_(programs[handle]);
     delete this.objects_[handle];
   }
@@ -2292,10 +2293,10 @@ wtf.replay.graphics.Playback.CALLS_ = {
       playback.webGLStates_[contextHandle] = (
           new wtf.replay.graphics.WebGLState(gl));
 
-      playback.intermediateBuffers_[contextHandle] = (
-          new wtf.replay.graphics.IntermediateBuffer(gl,
-          playback.webGLStates_[contextHandle], width, height));
-      // TODO(scotttodd): register disposable?
+      var intermediateBuffer = new wtf.replay.graphics.IntermediateBuffer(gl,
+          playback.webGLStates_[contextHandle], width, height);
+      playback.intermediateBuffers_[contextHandle] = intermediateBuffer;
+      playback.registerDisposable(intermediateBuffer);
     }
 
     playback.currentContext_ = gl;

@@ -14,7 +14,6 @@
 
 goog.provide('wtf.replay.graphics.WebGLState');
 
-goog.require('goog.Disposable');
 goog.require('goog.asserts');
 goog.require('goog.webgl');
 
@@ -25,11 +24,8 @@ goog.require('goog.webgl');
  *
  * @param {!WebGLRenderingContext} gl The context to work with.
  * @constructor
- * @extends {goog.Disposable}
  */
 wtf.replay.graphics.WebGLState = function(gl) {
-  goog.base(this);
-
   /**
    * The WebGL context to backup and restore.
    * @type {!WebGLRenderingContext}
@@ -94,17 +90,6 @@ wtf.replay.graphics.WebGLState = function(gl) {
    * @private
    */
   this.savedAttributes_ = {};
-};
-goog.inherits(wtf.replay.graphics.WebGLState, goog.Disposable);
-
-
-/**
- * @override
- */
-wtf.replay.graphics.WebGLState.prototype.disposeInternal = function() {
-  // TODO(scotttodd): Determine if anything else belongs in here.
-
-  goog.base(this, 'disposeInternal');
 };
 
 

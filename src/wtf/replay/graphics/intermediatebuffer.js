@@ -116,8 +116,14 @@ goog.inherits(wtf.replay.graphics.IntermediateBuffer, goog.Disposable);
  * @override
  */
 wtf.replay.graphics.IntermediateBuffer.prototype.disposeInternal = function() {
-  // TODO(scotttodd): Determine if anything else belongs in here.
-  // TODO(scotttodd): delete buffers?
+  var gl = this.context_;
+
+  gl.deleteFramebuffer(this.framebuffer_);
+  gl.deleteTexture(this.rtt_);
+  gl.deleteRenderbuffer(this.renderbuffer_);
+  gl.deleteProgram(this.drawTextureProgram_);
+  gl.deleteBuffer(this.squareVertexPositionBuffer_);
+  gl.deleteBuffer(this.squareTextureCoordBuffer_);
 
   goog.base(this, 'disposeInternal');
 };
