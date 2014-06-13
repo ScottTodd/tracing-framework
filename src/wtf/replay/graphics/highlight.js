@@ -12,7 +12,7 @@
  */
 
 // TODO(scotttodd): Create a Visualizer class that defines an interface and
-//                  common logic.
+//                  implements common logic.
 
 goog.provide('wtf.replay.graphics.Highlight');
 
@@ -82,16 +82,6 @@ wtf.replay.graphics.Highlight = function(playback) {
   this.webGLStates_ = {};
 };
 goog.inherits(wtf.replay.graphics.Highlight, goog.Disposable);
-
-
-/**
- * @override
- */
-wtf.replay.graphics.Highlight.prototype.disposeInternal = function() {
-  // TODO(scotttodd): Add extra logic/deletions here?
-
-  goog.base(this, 'disposeInternal');
-};
 
 
 /**
@@ -193,35 +183,40 @@ wtf.replay.graphics.Highlight.prototype.processPerformDraw = function(
 /**
  * Run visualization, manipulating playback and buffers as needed.
  * @param {?number} contextHandle Context handle from event arguments.
+ * @param {!number} index The substep index to highlight.
  */
 wtf.replay.graphics.Highlight.prototype.triggerVisualization = function(
-    contextHandle) {
+    contextHandle, index) {
   if (!contextHandle) {
     return;
   }
+  this.finishVisualization(contextHandle);
+
   var playback = this.playback_;
-  var highlightCallNumber = 51;
 
   var currentSubStepId = playback.getSubStepEventIndex();
 
-  // Go to the previous substep event, displayed value is 1-indexed.
-  playback.seekSubStepEvent(highlightCallNumber - 2);
+  // Seek to the substep event immediately before the target index.
+  playback.seekSubStepEvent(index - 1);
 
+  var playbackBuffer = this.playbackBuffers_[contextHandle];
   // Notify playback that we should be used for the next draw call.
   playback.setActiveVisualizer(this);
   // Advance to the highlight call and then return to regular playback.
-  playback.seekSubStepEvent(highlightCallNumber - 1);
+  playback.seekSubStepEvent(index);
   playback.setActiveVisualizer(null);
 
+  // Prevent resizing during seek, since that would destroy buffer contents.
   var highlightBuffer = this.highlightBuffers_[contextHandle];
   highlightBuffer.disableResize();
   playback.seekSubStepEvent(currentSubStepId);
   highlightBuffer.enableResize();
 
-  var playbackBuffer = this.playbackBuffers_[contextHandle];
+  // Save the current framebuffer as a texture to restore when finished.
   playbackBuffer.captureTexture();
-  playbackBuffer.disableResize();
 
+  // Draw the captured highlight texture.
+  // Enable blending to not overwrite the rest of the framebuffer.
   highlightBuffer.drawTexture(true);
 
   playback.setFinishedVisualizer(this);
@@ -242,5 +237,4 @@ wtf.replay.graphics.Highlight.prototype.finishVisualization = function(
 
   var playbackBuffer = this.playbackBuffers_[contextHandle];
   playbackBuffer.drawTexture();
-  playbackBuffer.enableResize();
 };

@@ -534,10 +534,12 @@ wtf.replay.graphics.Playback.prototype.setFinishedVisualizer = function(
 
 
 /**
- * Toggles if fragment shaders will be replaced with a single color shader.
+ * Trigger highlight visualization for a target substep index.
+ * @param {!number} index The substep index to highlight. Should be a draw call.
  */
-wtf.replay.graphics.Playback.prototype.toggleReplaceShaders = function() {
-  this.highlightVisualizer_.triggerVisualization(this.currentContextHandle_);
+wtf.replay.graphics.Playback.prototype.triggerHighlight = function(index) {
+  this.highlightVisualizer_.triggerVisualization(this.currentContextHandle_,
+      index);
   return;
 };
 
@@ -1084,6 +1086,16 @@ wtf.replay.graphics.Playback.prototype.seekToLastCall = function() {
 
 
 /**
+ * Returns whether a given EventIterator is at a draw call.
+ * @param {!wtf.db.EventIterator} it Event iterator.
+ * @return {boolean} True if 'it' is a draw call, false otherwise.
+ */
+wtf.replay.graphics.Playback.prototype.isDrawCall = function(it) {
+  return this.drawCallIds_[it.getTypeId()];
+};
+
+
+/**
  * Seeks to the previous draw call within the current step. If no draw call is
  * before the current call within the step, seeks to the start of the step.
  */
@@ -1105,7 +1117,7 @@ wtf.replay.graphics.Playback.prototype.seekToPreviousDrawCall = function() {
   --eventJustFinishedIndex;
   while (eventJustFinishedIndex >= 0) {
     it.seek(eventJustFinishedIndex);
-    if (this.drawCallIds_[it.getTypeId()]) {
+    if (this.isDrawCall(it)) {
       // Found a previous draw call. Seek to it.
       this.seekSubStepEvent(eventJustFinishedIndex);
       return;
@@ -1138,7 +1150,7 @@ wtf.replay.graphics.Playback.prototype.seekToNextDrawCall = function() {
   it.seek(eventJustFinished + 1);
   while (!it.done()) {
     this.realizeEvent_(it);
-    if (this.drawCallIds_[it.getTypeId()]) {
+    if (this.isDrawCall(it)) {
       this.subStepId_ = it.getIndex();
       this.emitEvent(
           wtf.replay.graphics.Playback.EventType.SUB_STEP_EVENT_CHANGED);

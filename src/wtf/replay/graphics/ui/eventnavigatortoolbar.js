@@ -92,14 +92,6 @@ wtf.replay.graphics.ui.EventNavigatorToolbar = function(
       goog.getCssName('lastCallButton'));
 
   /**
-   * Toggle highlight visualization on and off.
-   * @type {!Element}
-   * @private
-   */
-  this.toggleHighlightButton_ = this.getChildElement(
-      goog.getCssName('toggleHighlightButton'));
-
-  /**
    * The options button.
    * @type {!Element}
    * @private
@@ -227,10 +219,6 @@ wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.setReady = function() {
       this.lastCallButton_,
       goog.events.EventType.CLICK,
       this.lastCallHandler_, false, this);
-  eh.listen(
-      this.toggleHighlightButton_,
-      goog.events.EventType.CLICK,
-      this.toggleHighlightHandler_, false, this);
 
   // Setup keyboard shortcuts.
   var keyboard = wtf.events.getWindowKeyboard(this.getDom());
@@ -265,7 +253,6 @@ wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.setEnabled_ =
   this.toggleButton(goog.getCssName('previousDrawCallButton'), enabled);
   this.toggleButton(goog.getCssName('nextDrawCallButton'), enabled);
   this.toggleButton(goog.getCssName('lastCallButton'), enabled);
-  this.toggleButton(goog.getCssName('toggleHighlightButton'), enabled);
   this.searchControl_.setEnabled(enabled);
   this.toggleButton(goog.getCssName('optionsButton'), enabled);
 };
@@ -336,20 +323,6 @@ wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.lastCallHandler_ =
   this.emitEvent(
       wtf.replay.graphics.ui.EventNavigatorToolbar.EventType
           .MANUAL_SUB_STEP_SEEK);
-};
-
-
-/**
- * Handles clicks of the test function button.
- * @private
- */
-wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.toggleHighlightHandler_ =
-    function() {
-  if (!this.enabled_) {
-    return;
-  }
-
-  this.playback_.toggleReplaceShaders();
 };
 
 

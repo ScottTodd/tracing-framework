@@ -217,6 +217,7 @@ wtf.replay.graphics.WebGLState.prototype.backup = function() {
   gl.activeTexture(this.savedState_[goog.webgl.ACTIVE_TEXTURE]);
 
   // Backup attributes.
+  // TODO(scotttodd): Support parameterized number of attributes to backup?
   this.savedAttributes_ = [];
   var attribPropertyEnums = [
     goog.webgl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING,

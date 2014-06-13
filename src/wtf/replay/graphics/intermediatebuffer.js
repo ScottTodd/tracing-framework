@@ -324,6 +324,7 @@ wtf.replay.graphics.IntermediateBuffer.prototype.clear = function() {
 
   this.bindFramebuffer();
   gl.clearColor(0.0, 0.0, 0.0, 0.0);
+  gl.disable(goog.webgl.SCISSOR_TEST);
   gl.clear(goog.webgl.COLOR_BUFFER_BIT | goog.webgl.DEPTH_BUFFER_BIT);
 
   this.webGLState_.restore();
