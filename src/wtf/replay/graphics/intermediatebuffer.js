@@ -315,6 +315,22 @@ wtf.replay.graphics.IntermediateBuffer.prototype.captureTexture = function() {
 
 
 /**
+ * Clears the framebuffer and the attached render texture.
+ */
+wtf.replay.graphics.IntermediateBuffer.prototype.clear = function() {
+  var gl = this.context_;
+
+  this.webGLState_.backup();
+
+  this.bindFramebuffer();
+  gl.clearColor(0.0, 0.0, 0.0, 0.0);
+  gl.clear(goog.webgl.COLOR_BUFFER_BIT | goog.webgl.DEPTH_BUFFER_BIT);
+
+  this.webGLState_.restore();
+};
+
+
+/**
  * Draws the render texture using an internal shader to the active framebuffer.
  * @param {boolean=} opt_blend If true, use alpha blending. Otherwise no blend.
  */
@@ -369,6 +385,7 @@ wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function(
   gl.disable(goog.webgl.DITHER);
   gl.disable(goog.webgl.SCISSOR_TEST);
   gl.disable(goog.webgl.STENCIL_TEST);
+  gl.colorMask(true, true, true, true);
 
   if (opt_blend) {
     gl.enable(goog.webgl.BLEND);

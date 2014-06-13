@@ -11,16 +11,16 @@
  * @author scotttodd@google.com (Scott Todd)
  */
 
-// TODO(scotttodd): Create a Visualizer class that holds most of this logic.
+// TODO(scotttodd): Create a Visualizer class that defines an interface and
+//                  common logic.
 
 goog.provide('wtf.replay.graphics.Highlight');
 
 goog.require('goog.Disposable');
-// goog.require('goog.asserts');
 goog.require('goog.webgl');
 goog.require('wtf.replay.graphics.IntermediateBuffer');
 goog.require('wtf.replay.graphics.Program');
-// goog.require('wtf.replay.graphics.WebGLState');
+goog.require('wtf.replay.graphics.WebGLState');
 
 
 
@@ -72,6 +72,14 @@ wtf.replay.graphics.Highlight = function(playback) {
    * @private
    */
   this.highlightBuffers_ = {};
+
+  /**
+   * WebGLStates for backup/restore, mapping of handles to WebGLStates.
+   * Keys are context handles from event arguments.
+   * @type {!Object.<!wtf.replay.graphics.WebGLState>}
+   * @private
+   */
+  this.webGLStates_ = {};
 };
 goog.inherits(wtf.replay.graphics.Highlight, goog.Disposable);
 
@@ -110,6 +118,9 @@ wtf.replay.graphics.Highlight.prototype.processSetContext = function(
         width, height);
     this.highlightBuffers_[contextHandle] = highlightBuffer;
     this.registerDisposable(highlightBuffer);
+
+    var webGLState = new wtf.replay.graphics.WebGLState(gl);
+    this.webGLStates_[contextHandle] = webGLState;
   }
 };
 
@@ -158,30 +169,24 @@ wtf.replay.graphics.Highlight.prototype.processPerformDraw = function(
   if (!contextHandle) {
     return;
   }
+  // Render normally to the active framebuffer.
   drawFunction();
 
   var gl = this.contexts_[contextHandle];
 
-  var originalFramebuffer = /** @type {WebGLFramebuffer} */ (
-      gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING));
+  var webGLState = this.webGLStates_[contextHandle];
+  webGLState.backup();
 
-  // Change blend state? if yes, add backup/restore
-  // gl.disable(goog.webgl.BLEND);
-  // gl.disable(goog.webgl.CULL_FACE);
-  // gl.frontFace(goog.webgl.CCW);
-  // gl.disable(goog.webgl.DEPTH_TEST);
-  // gl.disable(goog.webgl.DITHER);
-  // gl.disable(goog.webgl.SCISSOR_TEST);
-  // gl.disable(goog.webgl.STENCIL_TEST);
-  // set clear color to transparent and clear?
-  // gl.clear(goog.webgl.COLOR_BUFFER_BIT);
+  // Set state for highlight drawing.
+  gl.disable(goog.webgl.DEPTH_TEST);
 
+  // Render with the highlight program into the highlight buffer.
   var highlightBuffer = this.highlightBuffers_[contextHandle];
   highlightBuffer.bindFramebuffer();
 
   this.programs_[programHandle].drawWithVariant(drawFunction, 'highlight');
 
-  gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
+  webGLState.restore();
 };
 
 
@@ -232,6 +237,9 @@ wtf.replay.graphics.Highlight.prototype.finishVisualization = function(
   if (!contextHandle) {
     return;
   }
+  var highlightBuffer = this.highlightBuffers_[contextHandle];
+  highlightBuffer.clear();
+
   var playbackBuffer = this.playbackBuffers_[contextHandle];
   playbackBuffer.drawTexture();
   playbackBuffer.enableResize();
