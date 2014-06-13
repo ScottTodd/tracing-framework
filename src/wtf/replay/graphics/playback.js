@@ -154,6 +154,8 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
    */
   this.intermediateBuffers_ = {};
 
+  this.highlightBuffer = null;
+
   /**
    * Whether resources have finished loading. Set to true after a
    * {@see #fetchResources_} process finishes.
@@ -523,7 +525,54 @@ wtf.replay.graphics.Playback.prototype.setToInitialState_ = function() {
  * Toggles if fragment shaders will be replaced with a single color shader.
  */
 wtf.replay.graphics.Playback.prototype.toggleReplaceShaders = function() {
-  this.replaceFragmentShaders_ = !this.replaceFragmentShaders_;
+  // this.replaceFragmentShaders_ = !this.replaceFragmentShaders_;
+  var highlightCallNumber = 51;
+  var currentSubStepId = this.subStepId_;
+  this.seekSubStepEvent(highlightCallNumber - 2);
+
+  // step 42 in quake-3.wtf-trace, go to highlightCallNumber 124
+  // step 10, call number 51
+  var currentStep = this.getCurrentStep();
+  var it = currentStep.getEventIterator(true);
+  it.seek(highlightCallNumber - 1);
+  this.replaceFragmentShaders_ = true;
+  this.realizeEvent_(it);
+  it.next();
+  this.replaceFragmentShaders_ = false;
+
+  // highlightBuffer has contents now. Return to the current substep
+  this.highlightBuffer.freeze(); // prevent resizing
+  this.seekSubStepEvent(currentSubStepId);
+  this.highlightBuffer.unfreeze(); // re-enable resizing
+
+  var intermediateBuffer = (
+      this.intermediateBuffers_[this.currentContextHandle_]);
+  intermediateBuffer.captureTexture();
+
+  // var webGLState = this.webGLStates_[this.currentContextHandle_];
+  // webGLState.backup();
+
+  // to highlight a past call (from 80, highlight 51), this works
+  //     restart, get to 51, draw to buffer, continue to 80, ...
+  // to highlight a future call (from 20, highlight 51), this does not work
+  //     advance forward, draw to buffer, skip back to start...
+  this.highlightBuffer.drawTexture(true);
+
+  // webGLState.restore();
+
+  // 1. seek to highlight call
+  // 2. realizeEvent normally for visible playback
+  // 3. realizeEvent into an IntermediateBuffer for highlight
+  // 4. return to current call
+  // 5. render normally into an IntermediateBuffer
+  // 6. draw both IntermediateBuffers to screen
+
+  // var gl = this.currentContext_;
+
+  // var highlightBuffer = new wtf.replay.graphics.IntermediateBuffer(gl,
+  //         854, 480);
+
+  // to get it working first, always render playback into IntermediateBuffer
 };
 
 
@@ -1233,6 +1282,8 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
     return;
   }
 
+  // TODO: use gl.copyTexImage2D() into intermediateBuffer.rtt_?
+
   // Save current bindings to restore later.
   var originalFramebuffer = /** @type {WebGLFramebuffer} */ (
       gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING));
@@ -1243,22 +1294,42 @@ wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   }
 
   var webGLState = this.webGLStates_[this.currentContextHandle_];
-  webGLState.backup();
 
-  var intermediateBuffer = (
-      this.intermediateBuffers_[this.currentContextHandle_]);
-  intermediateBuffer.bindFramebuffer();
+  // var intermediateBuffer = (
+  //     this.intermediateBuffers_[this.currentContextHandle_]);
+  // intermediateBuffer.bindFramebuffer();
 
   drawFunction();
 
   gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
 
-  intermediateBuffer.drawTexture();
+  if (this.replaceFragmentShaders_) {
+    webGLState.backup();
 
-  webGLState.restore();
+    // Change blend state? if no, remove the backup/restore
+    // gl.disable(goog.webgl.BLEND);
+    // gl.disable(goog.webgl.CULL_FACE);
+    // gl.frontFace(goog.webgl.CCW);
+    // gl.disable(goog.webgl.DEPTH_TEST);
+    // gl.disable(goog.webgl.DITHER);
+    // gl.disable(goog.webgl.SCISSOR_TEST);
+    // gl.disable(goog.webgl.STENCIL_TEST);
 
-  this.programCollection_[this.latestProgramHandle_].drawWithVariant(
-      drawFunction, 'highlight');
+    // TODO(scotttodd): Visualizer should handle multiple contexts
+    // highlightBuffer might not be for the correct gl context when there
+    // are multiple contexts
+    this.highlightBuffer.bindFramebuffer();
+    // set clear color to transparent and clear?
+    // gl.clear(goog.webgl.COLOR_BUFFER_BIT);
+    this.programCollection_[this.latestProgramHandle_].drawWithVariant(
+        drawFunction, 'highlight');
+
+    // drawFunction();
+
+    webGLState.restore();
+  }
+
+  // intermediateBuffer.drawTexture();
 };
 
 
@@ -2262,6 +2333,7 @@ wtf.replay.graphics.Playback.CALLS_ = {
       gl.canvas.height = height;
 
       playback.intermediateBuffers_[contextHandle].resize(width, height);
+      playback.highlightBuffer.resize(width, height);
     } else {
       // Otherwise, make a new context.
 
@@ -2294,9 +2366,14 @@ wtf.replay.graphics.Playback.CALLS_ = {
           new wtf.replay.graphics.WebGLState(gl));
 
       var intermediateBuffer = new wtf.replay.graphics.IntermediateBuffer(gl,
-          playback.webGLStates_[contextHandle], width, height);
+          width, height);
       playback.intermediateBuffers_[contextHandle] = intermediateBuffer;
       playback.registerDisposable(intermediateBuffer);
+
+      if (!playback.highlightBuffer) {
+        playback.highlightBuffer = new wtf.replay.graphics.IntermediateBuffer(
+            gl, width, height);
+      }
     }
 
     playback.currentContext_ = gl;

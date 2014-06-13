@@ -84,12 +84,12 @@ wtf.replay.graphics.WebGLState = function(gl) {
    */
   this.savedTextureBindingCubeMaps_ = [];
 
-  //  * @type {Object.<number, WebGLTexture>}
   /**
    * Backup of attributes.
+   * @type {Array.<Object.<number, ?>>}
    * @private
    */
-  this.savedAttributes_ = {};
+  this.savedAttributes_ = [];
 };
 
 
@@ -268,9 +268,7 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
         gl.enable(toggleState) : gl.disable(toggleState);
   }
 
-  // Restore other parameter states in alphabetic order.
-  gl.bindBuffer(goog.webgl.ARRAY_BUFFER,
-      this.savedState_[goog.webgl.ARRAY_BUFFER_BINDING]);
+  // Restore other parameter states, mostly in alphabetic order.
   gl.bindBuffer(goog.webgl.ELEMENT_ARRAY_BUFFER,
       this.savedState_[goog.webgl.ELEMENT_ARRAY_BUFFER_BINDING]);
   gl.bindFramebuffer(goog.webgl.FRAMEBUFFER,
@@ -385,4 +383,7 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
       }
     }
   }
+
+  gl.bindBuffer(goog.webgl.ARRAY_BUFFER,
+      this.savedState_[goog.webgl.ARRAY_BUFFER_BINDING]);
 };

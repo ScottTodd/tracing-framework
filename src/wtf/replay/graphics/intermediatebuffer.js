@@ -17,6 +17,7 @@ goog.provide('wtf.replay.graphics.IntermediateBuffer');
 goog.require('goog.Disposable');
 goog.require('goog.asserts');
 goog.require('goog.webgl');
+goog.require('wtf.replay.graphics.WebGLState');
 
 
 
@@ -26,14 +27,12 @@ goog.require('goog.webgl');
  * However, these can be resized after creation using the resize method.
  *
  * @param {!WebGLRenderingContext} gl The context to work with.
- * @param {!wtf.replay.graphics.WebGLState} webGLState Backup/restore utility.
  * @param {!number} width The width of the rendered area.
  * @param {!number} height The height of the rendered area.
  * @constructor
  * @extends {goog.Disposable}
  */
-wtf.replay.graphics.IntermediateBuffer = function(gl, webGLState,
-    width, height) {
+wtf.replay.graphics.IntermediateBuffer = function(gl, width, height) {
   goog.base(this);
 
   /**
@@ -42,13 +41,6 @@ wtf.replay.graphics.IntermediateBuffer = function(gl, webGLState,
    * @private
    */
   this.context_ = gl;
-
-  /**
-   * A backup/restore utility for this context.
-   * @type {!wtf.replay.graphics.WebGLState}
-   * @private
-   */
-  this.webGLState_ = webGLState;
 
   /**
    * The width of the rendered area.
@@ -63,6 +55,20 @@ wtf.replay.graphics.IntermediateBuffer = function(gl, webGLState,
    * @private
    */
   this.height_ = height;
+
+  /**
+   * A backup/restore utility for this context.
+   * @type {!wtf.replay.graphics.WebGLState}
+   * @private
+   */
+  this.webGLState_ = new wtf.replay.graphics.WebGLState(gl);
+
+  /**
+   * Whether or not resizing is enabled.
+   * @type {boolean}
+   * @private
+   */
+  this.frozen_ = false;
 
   /**
    * The intermediate framebuffer for rendering into.
@@ -235,6 +241,22 @@ wtf.replay.graphics.IntermediateBuffer.prototype.initialize_ = function() {
 
 
 /**
+ * Prevents resizing until unfreeze is called.
+ */
+wtf.replay.graphics.IntermediateBuffer.prototype.freeze = function() {
+  this.frozen_ = true;
+};
+
+
+/**
+ * Prevents resizing until unfreeze is called.
+ */
+wtf.replay.graphics.IntermediateBuffer.prototype.unfreeze = function() {
+  this.frozen_ = false;
+};
+
+
+/**
  * Resize the render texture and renderbuffer.
  * @param {!number} width The new width of the rendered area.
  * @param {!number} height The new height of the rendered area.
@@ -242,6 +264,10 @@ wtf.replay.graphics.IntermediateBuffer.prototype.initialize_ = function() {
 wtf.replay.graphics.IntermediateBuffer.prototype.resize = function(
     width, height) {
   var gl = this.context_;
+
+  if (this.frozen_ || (this.width_ === width && this.height_ === height)) {
+    return;
+  }
 
   this.webGLState_.backup();
 
@@ -271,10 +297,31 @@ wtf.replay.graphics.IntermediateBuffer.prototype.bindFramebuffer = function() {
 
 
 /**
- * Draws the render texture using an internal shader to the active framebuffer.
+ * Captures the pixel contents of the active framebuffer in the texture.
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function() {
+wtf.replay.graphics.IntermediateBuffer.prototype.captureTexture = function() {
   var gl = this.context_;
+
+  var originalTextureBinding = /** @type {!WebGLTexture} */ (
+      gl.getParameter(goog.webgl.TEXTURE_BINDING_2D));
+
+  gl.bindTexture(goog.webgl.TEXTURE_2D, this.rtt_);
+  gl.copyTexImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, 0, 0,
+      this.width_, this.height_, 0);
+
+  gl.bindTexture(goog.webgl.TEXTURE_2D, originalTextureBinding);
+};
+
+
+/**
+ * Draws the render texture using an internal shader to the active framebuffer.
+ * @param {boolean=} opt_blend If true, use alpha blending. Otherwise no blend.
+ */
+wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function(
+    opt_blend) {
+  var gl = this.context_;
+
+  this.webGLState_.backup();
 
   gl.useProgram(this.drawTextureProgram_);
 
@@ -309,6 +356,11 @@ wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function() {
   gl.disable(goog.webgl.SCISSOR_TEST);
   gl.disable(goog.webgl.STENCIL_TEST);
 
+  if (opt_blend) {
+    gl.enable(goog.webgl.BLEND);
+    gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
+  }
+
   // Disable instancing for attributes 0 and 1, if the extension exists.
   var ext = gl.getExtension('ANGLE_instanced_arrays');
   if (ext) {
@@ -318,4 +370,6 @@ wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function() {
 
   // Draw the intermediate buffer's render texture to the current framebuffer.
   gl.drawArrays(goog.webgl.TRIANGLES, 0, 6);
+
+  this.webGLState_.restore();
 };
