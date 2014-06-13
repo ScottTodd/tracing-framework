@@ -25,10 +25,8 @@ goog.require('goog.object');
 goog.require('goog.webgl');
 goog.require('wtf.events.EventEmitter');
 goog.require('wtf.replay.graphics.ExtensionManager');
-goog.require('wtf.replay.graphics.IntermediateBuffer');
-goog.require('wtf.replay.graphics.Program');
+goog.require('wtf.replay.graphics.Highlight');
 goog.require('wtf.replay.graphics.Step');
-goog.require('wtf.replay.graphics.WebGLState');
 goog.require('wtf.timing.util');
 
 
@@ -127,13 +125,6 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
   this.programs_ = {};
 
   /**
-   * A collection of Programs. Keys are program handles from event arguments.
-   * @type {!Object.<!wtf.replay.graphics.Program>}
-   * @private
-   */
-  this.programCollection_ = {};
-
-  /**
    * The program handle from event arguments for the latest used program.
    * @type {number}
    * @private
@@ -141,20 +132,28 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
   this.latestProgramHandle_ = 0;
 
   /**
-   * A mapping of handles from event arguments to WebGLState backup utilities.
-   * @type {Object.<!wtf.replay.graphics.WebGLState>}
+   * Draw call highlighting visualizer.
+   * @type {!wtf.replay.graphics.Highlight}
    * @private
    */
-  this.webGLStates_ = {};
+  this.highlightVisualizer_ = new wtf.replay.graphics.Highlight(this);
+  this.registerDisposable(this.highlightVisualizer_);
 
+  // TODO(scotttodd): Replace type with Visualizer parent class.
   /**
-   * A mapping of handles from event arguments to IntermediateBuffer objects.
-   * @type {Object.<!wtf.replay.graphics.IntermediateBuffer>}
+   * The active visualizer, or null if no visualizer is active.
+   * @type {wtf.replay.graphics.Highlight}
    * @private
    */
-  this.intermediateBuffers_ = {};
+  this.activeVisualizer_ = null;
 
-  this.highlightBuffer = null;
+  // TODO(scotttodd): Replace type with Visualizer parent class.
+  /**
+   * A finished visualizer. Call finishVisualization before advancing playback.
+   * @type {wtf.replay.graphics.Highlight}
+   * @private
+   */
+  this.finishedVisualizer_ = null;
 
   /**
    * Whether resources have finished loading. Set to true after a
@@ -184,13 +183,6 @@ wtf.replay.graphics.Playback = function(eventList, frameList, contextPool) {
    * @private
    */
   this.playing_ = false;
-
-  /**
-   * If true, replace fragment shaders with a single color shader
-   * @type {boolean}
-   * @private
-   */
-  this.replaceFragmentShaders_ = false;
 
   /**
    * The ID of the event (relative to the step iterator) within a step. This is
@@ -522,93 +514,31 @@ wtf.replay.graphics.Playback.prototype.setToInitialState_ = function() {
 
 
 /**
+ * Set the active visualizer.
+ * @param {wtf.replay.graphics.Highlight} visualizer The Visualizer.
+ */
+wtf.replay.graphics.Playback.prototype.setActiveVisualizer = function(
+    visualizer) {
+  this.activeVisualizer_ = visualizer;
+};
+
+
+/**
+ * Set the finished visualizer.
+ * @param {wtf.replay.graphics.Highlight} visualizer The Visualizer.
+ */
+wtf.replay.graphics.Playback.prototype.setFinishedVisualizer = function(
+    visualizer) {
+  this.finishedVisualizer_ = visualizer;
+};
+
+
+/**
  * Toggles if fragment shaders will be replaced with a single color shader.
  */
 wtf.replay.graphics.Playback.prototype.toggleReplaceShaders = function() {
-  // this.replaceFragmentShaders_ = !this.replaceFragmentShaders_;
-  var highlightCallNumber = 51;
-  var currentSubStepId = this.subStepId_;
-  this.seekSubStepEvent(highlightCallNumber - 2);
-
-  // step 42 in quake-3.wtf-trace, go to highlightCallNumber 124
-  // step 10, call number 51
-  var currentStep = this.getCurrentStep();
-  var it = currentStep.getEventIterator(true);
-  it.seek(highlightCallNumber - 1);
-  this.replaceFragmentShaders_ = true;
-  this.realizeEvent_(it);
-  it.next();
-  this.replaceFragmentShaders_ = false;
-
-  // highlightBuffer has contents now. Return to the current substep
-  this.highlightBuffer.freeze(); // prevent resizing
-  this.seekSubStepEvent(currentSubStepId);
-  this.highlightBuffer.unfreeze(); // re-enable resizing
-
-  var intermediateBuffer = (
-      this.intermediateBuffers_[this.currentContextHandle_]);
-  intermediateBuffer.captureTexture();
-
-  // var webGLState = this.webGLStates_[this.currentContextHandle_];
-  // webGLState.backup();
-
-  // to highlight a past call (from 80, highlight 51), this works
-  //     restart, get to 51, draw to buffer, continue to 80, ...
-  // to highlight a future call (from 20, highlight 51), this does not work
-  //     advance forward, draw to buffer, skip back to start...
-  this.highlightBuffer.drawTexture(true);
-
-  // webGLState.restore();
-
-  // 1. seek to highlight call
-  // 2. realizeEvent normally for visible playback
-  // 3. realizeEvent into an IntermediateBuffer for highlight
-  // 4. return to current call
-  // 5. render normally into an IntermediateBuffer
-  // 6. draw both IntermediateBuffers to screen
-
-  // var gl = this.currentContext_;
-
-  // var highlightBuffer = new wtf.replay.graphics.IntermediateBuffer(gl,
-  //         854, 480);
-
-  // to get it working first, always render playback into IntermediateBuffer
-};
-
-
-/**
- * Creates a wtf.replay.graphics.Program from the program at programHandle.
- * @param {!string} programHandle The program handle from event arguments.
- * @param {!WebGLRenderingContext} context The context of the program.
- */
-wtf.replay.graphics.Playback.prototype.addProgram = function(programHandle,
-    context) {
-  // Programs can be linked multiple times. Avoid leaking the previous program.
-  if (this.programCollection_[programHandle]) {
-    this.deleteProgram(programHandle);
-  }
-  var program = new wtf.replay.graphics.Program(
-      this.programs_[programHandle], context);
-  this.programCollection_[programHandle] = program;
-
-  var highlightFragmentSource = 'void main(void) { ' +
-      'gl_FragColor = vec4(0.1, 0.1, 0.4, 1.0); }';
-  program.createVariantProgram('highlight', '', highlightFragmentSource);
-
-  var overdrawFragmentSource = 'void main(void) { ' +
-      'gl_FragColor = vec4(0.1, 0.1, 0.1, 0.4); }';
-  program.createVariantProgram('overdraw', '', overdrawFragmentSource);
-};
-
-
-/**
- * Deletes the Program associated with the original shader program at
- * programHandle.
- * @param {!string} programHandle The program handle from event arguments.
- */
-wtf.replay.graphics.Playback.prototype.deleteProgram = function(programHandle) {
-  goog.dispose(this.programCollection_[programHandle]);
-  delete this.programCollection_[programHandle];
+  this.highlightVisualizer_.triggerVisualization(this.currentContextHandle_);
+  return;
 };
 
 
@@ -624,12 +554,7 @@ wtf.replay.graphics.Playback.prototype.clearWebGlObjects_ = function(
     this.pause();
   }
 
-  // Delete Programs and variants that are not cached.
-  for (var programKey in this.programCollection_) {
-    if (!this.programs_[programKey] || opt_clearCached) {
-      this.deleteProgram(programKey);
-    }
-  }
+  // TODO(scotttodd): Delete programs within visualizers?
 
   // Clear resources on the GPU.
   for (var objectKey in this.objects_) {
@@ -656,7 +581,7 @@ wtf.replay.graphics.Playback.prototype.clearWebGlObjects_ = function(
 wtf.replay.graphics.Playback.prototype.clearProgramsCache = function() {
   var programs = this.programs_;
   for (var handle in programs) {
-    this.deleteProgram(handle);
+    this.highlightVisualizer_.deleteProgram(handle);
     this.clearGpuResource_(programs[handle]);
     delete this.objects_[handle];
   }
@@ -1258,6 +1183,11 @@ wtf.replay.graphics.Playback.prototype.realizeEvent_ = function(it) {
   var associatedFunction = this.callLookupTable_[it.getTypeId()];
   if (associatedFunction) {
     try {
+      if (this.finishedVisualizer_) {
+        this.finishedVisualizer_.finishVisualization(
+            this.currentContextHandle_);
+        this.finishedVisualizer_ = null;
+      }
       associatedFunction.call(null, it.getId(), this, this.currentContext_,
           it.getArguments(), this.objects_);
     } catch (e) {
@@ -1277,59 +1207,17 @@ wtf.replay.graphics.Playback.prototype.realizeEvent_ = function(it) {
 wtf.replay.graphics.Playback.prototype.performDraw = function(drawFunction) {
   var gl = this.currentContext_;
 
-  if (!this.replaceFragmentShaders_) {
-    drawFunction();
-    return;
-  }
-
-  // TODO: use gl.copyTexImage2D() into intermediateBuffer.rtt_?
-
-  // Save current bindings to restore later.
   var originalFramebuffer = /** @type {WebGLFramebuffer} */ (
       gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING));
+
   // Do not edit calls where the target is not the visible framebuffer.
-  if (originalFramebuffer != null) {
+  if (!this.activeVisualizer_ || originalFramebuffer != null) {
     drawFunction();
-    return;
+  } else {
+    this.activeVisualizer_.processPerformDraw(this.currentContextHandle_,
+        this.latestProgramHandle_, drawFunction);
   }
-
-  var webGLState = this.webGLStates_[this.currentContextHandle_];
-
-  // var intermediateBuffer = (
-  //     this.intermediateBuffers_[this.currentContextHandle_]);
-  // intermediateBuffer.bindFramebuffer();
-
-  drawFunction();
-
-  gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
-
-  if (this.replaceFragmentShaders_) {
-    webGLState.backup();
-
-    // Change blend state? if no, remove the backup/restore
-    // gl.disable(goog.webgl.BLEND);
-    // gl.disable(goog.webgl.CULL_FACE);
-    // gl.frontFace(goog.webgl.CCW);
-    // gl.disable(goog.webgl.DEPTH_TEST);
-    // gl.disable(goog.webgl.DITHER);
-    // gl.disable(goog.webgl.SCISSOR_TEST);
-    // gl.disable(goog.webgl.STENCIL_TEST);
-
-    // TODO(scotttodd): Visualizer should handle multiple contexts
-    // highlightBuffer might not be for the correct gl context when there
-    // are multiple contexts
-    this.highlightBuffer.bindFramebuffer();
-    // set clear color to transparent and clear?
-    // gl.clear(goog.webgl.COLOR_BUFFER_BIT);
-    this.programCollection_[this.latestProgramHandle_].drawWithVariant(
-        drawFunction, 'highlight');
-
-    // drawFunction();
-
-    webGLState.restore();
-  }
-
-  // intermediateBuffer.drawTexture();
+  return;
 };
 
 
@@ -1513,14 +1401,7 @@ wtf.replay.graphics.Playback.CALLS_ = {
   'WebGLRenderingContext#clear': function(
       eventId, playback, gl, args, objs) {
     gl.clear(args['mask']);
-    var originalFramebuffer = gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING);
-    if (originalFramebuffer != null) { return; }
-
-    var intermediateBuffer = (
-        playback.intermediateBuffers_[playback.currentContextHandle_]);
-    intermediateBuffer.bindFramebuffer();
-    gl.clear(args['mask']);
-    gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
+    // TODO(scotttodd): Call clear within visualizers?
   },
   'WebGLRenderingContext#clearColor': function(
       eventId, playback, gl, args, objs) {
@@ -1631,7 +1512,7 @@ wtf.replay.graphics.Playback.CALLS_ = {
   'WebGLRenderingContext#deleteProgram': function(
       eventId, playback, gl, args, objs) {
     var programHandle = args['program'];
-    playback.deleteProgram(programHandle);
+    playback.highlightVisualizer_.deleteProgram(programHandle);
     gl.deleteProgram(
         /** @type {WebGLProgram} */ (objs[programHandle]));
     delete objs[programHandle];
@@ -1908,7 +1789,9 @@ wtf.replay.graphics.Playback.CALLS_ = {
       // Link the program only if the program was not cached.
       gl.linkProgram(
           /** @type {WebGLProgram} */ (objs[args['program']]));
-      playback.addProgram(args['program'], gl);
+      playback.highlightVisualizer_.processLinkProgram(gl,
+          /** @type {WebGLProgram} */ (objs[args['program']]),
+          /** @type {number} */ (args['program']));
     }
   },
   'WebGLRenderingContext#pixelStorei': function(
@@ -2331,9 +2214,6 @@ wtf.replay.graphics.Playback.CALLS_ = {
       // If the context has already been made, alter its settings.
       gl.canvas.width = width;
       gl.canvas.height = height;
-
-      playback.intermediateBuffers_[contextHandle].resize(width, height);
-      playback.highlightBuffer.resize(width, height);
     } else {
       // Otherwise, make a new context.
 
@@ -2360,25 +2240,14 @@ wtf.replay.graphics.Playback.CALLS_ = {
       // Store the context.
       playback.contexts_[contextHandle] =
           /** @type {WebGLRenderingContext} */ (gl);
-
-      // Create and store a WebGLState object for this context.
-      playback.webGLStates_[contextHandle] = (
-          new wtf.replay.graphics.WebGLState(gl));
-
-      var intermediateBuffer = new wtf.replay.graphics.IntermediateBuffer(gl,
-          width, height);
-      playback.intermediateBuffers_[contextHandle] = intermediateBuffer;
-      playback.registerDisposable(intermediateBuffer);
-
-      if (!playback.highlightBuffer) {
-        playback.highlightBuffer = new wtf.replay.graphics.IntermediateBuffer(
-            gl, width, height);
-      }
     }
 
     playback.currentContext_ = gl;
     playback.currentContextHandle_ = contextHandle;
     gl.viewport(0, 0, width, height);
+
+    playback.highlightVisualizer_.processSetContext(gl, contextHandle,
+        width, height);
 
     playback.emitEvent(wtf.replay.graphics.Playback.EventType.CONTEXT_SET,
         gl, contextHandle);

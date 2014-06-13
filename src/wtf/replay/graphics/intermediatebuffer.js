@@ -68,7 +68,7 @@ wtf.replay.graphics.IntermediateBuffer = function(gl, width, height) {
    * @type {boolean}
    * @private
    */
-  this.frozen_ = false;
+  this.resizeDisabled_ = false;
 
   /**
    * The intermediate framebuffer for rendering into.
@@ -241,18 +241,18 @@ wtf.replay.graphics.IntermediateBuffer.prototype.initialize_ = function() {
 
 
 /**
- * Prevents resizing until unfreeze is called.
+ * Prevents resizing until enableResize is called.
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.freeze = function() {
-  this.frozen_ = true;
+wtf.replay.graphics.IntermediateBuffer.prototype.disableResize = function() {
+  this.resizeDisabled_ = true;
 };
 
 
 /**
- * Prevents resizing until unfreeze is called.
+ * Restore resizing.
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.unfreeze = function() {
-  this.frozen_ = false;
+wtf.replay.graphics.IntermediateBuffer.prototype.enableResize = function() {
+  this.resizeDisabled_ = false;
 };
 
 
@@ -265,7 +265,8 @@ wtf.replay.graphics.IntermediateBuffer.prototype.resize = function(
     width, height) {
   var gl = this.context_;
 
-  if (this.frozen_ || (this.width_ === width && this.height_ === height)) {
+  if (this.resizeDisabled_ ||
+      (this.width_ === width && this.height_ === height)) {
     return;
   }
 
@@ -325,7 +326,14 @@ wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function(
 
   gl.useProgram(this.drawTextureProgram_);
 
-  // Change vertex attrib settings.
+  // Disable all attributes.
+  var maxVertexAttribs = /** @type {number} */ (gl.getParameter(
+      goog.webgl.MAX_VERTEX_ATTRIBS));
+  for (var i = 0; i < maxVertexAttribs; i++) {
+    gl.disableVertexAttribArray(i);
+  }
+
+  // Update vertex attrib settings.
   var vertexAttribLocation = gl.getAttribLocation(this.drawTextureProgram_,
       'aVertexPosition');
   gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this.squareVertexPositionBuffer_);
@@ -333,13 +341,20 @@ wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function(
   gl.vertexAttribPointer(vertexAttribLocation, 2, goog.webgl.FLOAT, false,
       0, 0);
 
-  // Change texture coord attrib settings.
+  // Update texture coord attrib settings.
   var textureCoordAttribLocation = gl.getAttribLocation(
       this.drawTextureProgram_, 'aTextureCoord');
   gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this.squareTextureCoordBuffer_);
   gl.enableVertexAttribArray(textureCoordAttribLocation);
   gl.vertexAttribPointer(textureCoordAttribLocation, 2, goog.webgl.FLOAT,
       false, 0, 0);
+
+  // Disable instancing for attributes, if the extension exists.
+  var ext = gl.getExtension('ANGLE_instanced_arrays');
+  if (ext) {
+    ext['vertexAttribDivisorANGLE'](vertexAttribLocation, 0);
+    ext['vertexAttribDivisorANGLE'](textureCoordAttribLocation, 0);
+  }
 
   var uniformLocation = gl.getUniformLocation(this.drawTextureProgram_,
       'uSampler');
@@ -348,7 +363,6 @@ wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function(
   gl.uniform1i(uniformLocation, 0);
 
   // Change states prior to drawing.
-  gl.disable(goog.webgl.BLEND);
   gl.disable(goog.webgl.CULL_FACE);
   gl.frontFace(goog.webgl.CCW);
   gl.disable(goog.webgl.DEPTH_TEST);
@@ -359,13 +373,8 @@ wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function(
   if (opt_blend) {
     gl.enable(goog.webgl.BLEND);
     gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
-  }
-
-  // Disable instancing for attributes 0 and 1, if the extension exists.
-  var ext = gl.getExtension('ANGLE_instanced_arrays');
-  if (ext) {
-    ext['vertexAttribDivisorANGLE'](0, 0);
-    ext['vertexAttribDivisorANGLE'](1, 0);
+  } else {
+    gl.disable(goog.webgl.BLEND);
   }
 
   // Draw the intermediate buffer's render texture to the current framebuffer.
