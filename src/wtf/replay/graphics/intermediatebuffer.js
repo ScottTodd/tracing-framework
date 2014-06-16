@@ -307,7 +307,9 @@ wtf.replay.graphics.IntermediateBuffer.prototype.captureTexture = function() {
       gl.getParameter(goog.webgl.TEXTURE_BINDING_2D));
 
   gl.bindTexture(goog.webgl.TEXTURE_2D, this.rtt_);
-  gl.copyTexImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, 0, 0,
+  var alpha = gl.getContextAttributes()['alpha'];
+  var format = alpha ? goog.webgl.RGBA : goog.webgl.RGB;
+  gl.copyTexImage2D(goog.webgl.TEXTURE_2D, 0, format, 0, 0,
       this.width_, this.height_, 0);
 
   gl.bindTexture(goog.webgl.TEXTURE_2D, originalTextureBinding);
