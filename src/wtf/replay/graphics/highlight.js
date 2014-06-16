@@ -80,6 +80,13 @@ wtf.replay.graphics.Highlight = function(playback) {
    * @private
    */
   this.webGLStates_ = {};
+
+  /**
+   * If true, render draw calls using an alternate color and blending.
+   * @type {!boolean}
+   * @private
+   */
+  this.secondaryHighlight_ = false;
 };
 goog.inherits(wtf.replay.graphics.Highlight, goog.Disposable);
 
@@ -131,8 +138,10 @@ wtf.replay.graphics.Highlight.prototype.processLinkProgram = function(
   var program = new wtf.replay.graphics.Program(originalProgram, gl);
   this.programs_[programHandle] = program;
 
-  var highlightFragmentSource = 'void main(void) { ' +
-      'gl_FragColor = vec4(0.1, 0.1, 0.4, 1.0); }';
+  // TODO(scotttodd): Avoid name collision with vertex shader?
+  var highlightFragmentSource = 'precision mediump float;' +
+      'uniform vec4 highlightColor;' +
+      'void main(void) { gl_FragColor = highlightColor; }';
   program.createVariantProgram('highlight', '', highlightFragmentSource);
 };
 
@@ -173,8 +182,27 @@ wtf.replay.graphics.Highlight.prototype.processPerformDraw = function(
   // Render with the highlight program into the highlight buffer.
   var highlightBuffer = this.highlightBuffers_[contextHandle];
   highlightBuffer.bindFramebuffer();
+  var program = this.programs_[programHandle];
 
-  this.programs_[programHandle].drawWithVariant(drawFunction, 'highlight');
+  var originalProgram = /** @type {!WebGLProgram} */ (
+      gl.getParameter(goog.webgl.CURRENT_PROGRAM));
+  var hightlightVariantProgram = program.getVariantProgram('highlight');
+
+  gl.useProgram(hightlightVariantProgram);
+  var uniformLocation = gl.getUniformLocation(hightlightVariantProgram,
+      'highlightColor');
+  var highlightColor = [0.1, 0.2, 0.5, 1.0];
+  if (this.secondaryHighlight_) {
+    highlightColor = [0.05, 0.15, 0.05, 1.0];
+
+    gl.enable(goog.webgl.BLEND);
+    gl.blendEquation(goog.webgl.FUNC_ADD);
+    gl.blendFunc(goog.webgl.DST_ALPHA, goog.webgl.ONE);
+  }
+  gl.uniform4fv(uniformLocation, highlightColor);
+  gl.useProgram(originalProgram);
+
+  program.drawWithVariant(drawFunction, 'highlight');
 
   webGLState.restore();
 };
@@ -204,7 +232,14 @@ wtf.replay.graphics.Highlight.prototype.triggerVisualization = function(
   playback.setActiveVisualizer(this);
   // Advance to the highlight call and then return to regular playback.
   playback.seekSubStepEvent(index);
-  playback.setActiveVisualizer(null);
+
+  // If playback continues forward from here, continue drawing using
+  // a secondary highlight. Otherwise, stop drawing.
+  if (currentSubStepId > index) {
+    this.secondaryHighlight_ = true;
+  } else {
+    playback.setActiveVisualizer(null);
+  }
 
   // Prevent resizing during seek, since that would destroy buffer contents.
   var highlightBuffer = this.highlightBuffers_[contextHandle];
@@ -219,6 +254,7 @@ wtf.replay.graphics.Highlight.prototype.triggerVisualization = function(
   // Enable blending to not overwrite the rest of the framebuffer.
   highlightBuffer.drawTexture(true);
 
+  playback.setActiveVisualizer(null);
   playback.setFinishedVisualizer(this);
 };
 
@@ -237,4 +273,6 @@ wtf.replay.graphics.Highlight.prototype.finishVisualization = function(
 
   var playbackBuffer = this.playbackBuffers_[contextHandle];
   playbackBuffer.drawTexture();
+
+  this.secondaryHighlight_ = false;
 };
