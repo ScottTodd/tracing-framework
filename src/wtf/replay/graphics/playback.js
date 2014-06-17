@@ -514,7 +514,7 @@ wtf.replay.graphics.Playback.prototype.setToInitialState_ = function() {
 
 
 /**
- * Set the active visualizer.
+ * Sets the active visualizer.
  * @param {wtf.replay.graphics.Highlight} visualizer The Visualizer.
  */
 wtf.replay.graphics.Playback.prototype.setActiveVisualizer = function(
@@ -524,7 +524,7 @@ wtf.replay.graphics.Playback.prototype.setActiveVisualizer = function(
 
 
 /**
- * Set the finished visualizer.
+ * Sets the finished visualizer.
  * @param {wtf.replay.graphics.Highlight} visualizer The Visualizer.
  */
 wtf.replay.graphics.Playback.prototype.setFinishedVisualizer = function(
@@ -534,7 +534,7 @@ wtf.replay.graphics.Playback.prototype.setFinishedVisualizer = function(
 
 
 /**
- * Trigger highlight visualization for a target substep index.
+ * Triggers highlight visualization for a target substep index.
  * @param {!number} index The substep index to highlight. Should be a draw call.
  */
 wtf.replay.graphics.Playback.prototype.triggerHighlight = function(index) {
@@ -556,7 +556,9 @@ wtf.replay.graphics.Playback.prototype.clearWebGlObjects_ = function(
     this.pause();
   }
 
-  // TODO(scotttodd): Delete programs within visualizers?
+  if (opt_clearCached) {
+    this.highlightVisualizer_.clearPrograms();
+  }
 
   // Clear resources on the GPU.
   for (var objectKey in this.objects_) {
@@ -583,10 +585,10 @@ wtf.replay.graphics.Playback.prototype.clearWebGlObjects_ = function(
 wtf.replay.graphics.Playback.prototype.clearProgramsCache = function() {
   var programs = this.programs_;
   for (var handle in programs) {
-    this.highlightVisualizer_.deleteProgram(handle);
     this.clearGpuResource_(programs[handle]);
     delete this.objects_[handle];
   }
+  this.highlightVisualizer_.clearPrograms();
   this.programs_ = {};
 };
 

@@ -7,9 +7,9 @@
 
 /**
  * @fileoverview Program. Stores a WebGL shader program and its variants.
- * Variants typically replace the fragment shader.
- * Syncs uniforms and attributes between the original program and the variants
- * whenever a variant is requested for usage.
+ * Variants can replace the fragment and vertex shaders, or use the originals.
+ * Uniforms and attributes are synced between the original program and a
+ * variant whenever that variant is used.
  *
  * @author scotttodd@google.com (Scott Todd)
  */
@@ -26,7 +26,7 @@ goog.require('goog.webgl');
  * Stores a WebGL shader program and its variants.
  *
  * @param {!WebGLProgram} originalProgram Original WebGL shader program.
- *     Vertex and fragment shaders must already be attached.
+ *     A vertex and a fragment shader must already be attached.
  * @param {!WebGLRenderingContext} gl The context used by originalProgram.
  * @constructor
  * @extends {goog.Disposable}

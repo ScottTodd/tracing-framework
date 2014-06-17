@@ -7,7 +7,8 @@
 
 /**
  * @fileoverview WebGLState. Supports backup and restore for the WebGL state.
- * Initially, only a subset of the state will be supported.
+ * Does not handle buffer or texture contents.
+ * Extensions support is limited to ANGLE_instanced_arrays.
  *
  * @author scotttodd@google.com (Scott Todd)
  */
@@ -65,8 +66,6 @@ wtf.replay.graphics.WebGLState = function(gl) {
     goog.webgl.DEPTH_TEST,
     goog.webgl.DITHER,
     goog.webgl.POLYGON_OFFSET_FILL,
-    // goog.webgl.SAMPLE_ALPHA_TO_COVERAGE, // SAMPLE_COVERAGE_INVERT?
-    // goog.webgl.SAMPLE_COVERAGE, // SAMPLE_COVERAGE_VALUE?
     goog.webgl.SCISSOR_TEST,
     goog.webgl.STENCIL_TEST];
 
@@ -94,7 +93,7 @@ wtf.replay.graphics.WebGLState = function(gl) {
 
 
 /**
- * Setup stateParameters_. Delay calling this until needed.
+ * Sets up stateParameters_. Delay calling this until needed.
  * @private
  */
 wtf.replay.graphics.WebGLState.prototype.setupStateParameters_ = function() {
@@ -185,7 +184,7 @@ wtf.replay.graphics.WebGLState.prototype.setupStateParameters_ = function() {
 
 
 /**
- * Backup selected portions of the current WebGL state.
+ * Backs up selected portions of the current WebGL state.
  */
 wtf.replay.graphics.WebGLState.prototype.backup = function() {
   if (this.stateParameters_.length == 0) {
@@ -253,7 +252,7 @@ wtf.replay.graphics.WebGLState.prototype.backup = function() {
 
 
 /**
- * Restore the portions of the WebGL state that were saved.
+ * Restores the portions of the WebGL state that were saved.
  */
 wtf.replay.graphics.WebGLState.prototype.restore = function() {
   // Cannot restore without a backup.

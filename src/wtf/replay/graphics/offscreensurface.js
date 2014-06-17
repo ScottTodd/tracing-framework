@@ -6,13 +6,13 @@
  */
 
 /**
- * @fileoverview IntermediateBuffer. Stores an offscreen framebuffer.
- * Supports drawing that buffer as a texture into the active framebuffer.
+ * @fileoverview OffscreenSurface. Stores an offscreen framebuffer and texture.
+ * The internal texture is used as a render target for the framebuffer.
  *
  * @author scotttodd@google.com (Scott Todd)
  */
 
-goog.provide('wtf.replay.graphics.IntermediateBuffer');
+goog.provide('wtf.replay.graphics.OffscreenSurface');
 
 goog.require('goog.Disposable');
 goog.require('goog.asserts');
@@ -23,7 +23,7 @@ goog.require('wtf.replay.graphics.WebGLState');
 
 /**
  * Stores an offscreen framebuffer that renders into a texture.
- * Buffers are created using dimensions width and height.
+ * Surfaces are created using dimensions width and height.
  * However, these can be resized after creation using the resize method.
  *
  * @param {!WebGLRenderingContext} gl The context to work with.
@@ -32,11 +32,11 @@ goog.require('wtf.replay.graphics.WebGLState');
  * @constructor
  * @extends {goog.Disposable}
  */
-wtf.replay.graphics.IntermediateBuffer = function(gl, width, height) {
+wtf.replay.graphics.OffscreenSurface = function(gl, width, height) {
   goog.base(this);
 
   /**
-   * The WebGL context to backup and restore.
+   * The WebGL context to associate with.
    * @type {!WebGLRenderingContext}
    * @private
    */
@@ -64,32 +64,33 @@ wtf.replay.graphics.IntermediateBuffer = function(gl, width, height) {
   this.webGLState_ = new wtf.replay.graphics.WebGLState(gl);
 
   /**
-   * Whether or not resizing is enabled.
+   * Prevents resizing if true - preserving surface contents.
    * @type {boolean}
    * @private
    */
   this.resizeDisabled_ = false;
 
   /**
-   * The intermediate framebuffer for rendering into.
+   * The offscreen framebuffer.
    * @type {WebGLFramebuffer}
    * @private
    */
   this.framebuffer_ = null;
 
   /**
-   * Texture that the framebuffer renders into.
+   * Internal texture. Used as a render target for this.framebuffer_.
+   * Used by drawTexture and captureTexture.
    * @type {WebGLTexture}
    * @private
    */
-  this.rtt_ = null;
+  this.texture_ = null;
 
   /**
-   * Renderbuffer used for depth information in the intermediate framebuffer.
+   * Renderbuffer used for depth information in the framebuffer.
    * @type {WebGLRenderbuffer}
    * @private
    */
-  this.renderbuffer_ = null;
+  this.depthBuffer_ = null;
 
   /**
    * A shader program that simply draws a texture.
@@ -115,18 +116,18 @@ wtf.replay.graphics.IntermediateBuffer = function(gl, width, height) {
   // Create the objects declared above.
   this.initialize_();
 };
-goog.inherits(wtf.replay.graphics.IntermediateBuffer, goog.Disposable);
+goog.inherits(wtf.replay.graphics.OffscreenSurface, goog.Disposable);
 
 
 /**
  * @override
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.disposeInternal = function() {
+wtf.replay.graphics.OffscreenSurface.prototype.disposeInternal = function() {
   var gl = this.context_;
 
   gl.deleteFramebuffer(this.framebuffer_);
-  gl.deleteTexture(this.rtt_);
-  gl.deleteRenderbuffer(this.renderbuffer_);
+  gl.deleteTexture(this.texture_);
+  gl.deleteRenderbuffer(this.depthBuffer_);
   gl.deleteProgram(this.drawTextureProgram_);
   gl.deleteBuffer(this.squareVertexPositionBuffer_);
   gl.deleteBuffer(this.squareTextureCoordBuffer_);
@@ -136,21 +137,21 @@ wtf.replay.graphics.IntermediateBuffer.prototype.disposeInternal = function() {
 
 
 /**
- * Create framebuffer, render texture, drawTextureProgram, and buffers.
+ * Creates framebuffer, texture, drawTextureProgram, and buffers.
  * @private
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.initialize_ = function() {
+wtf.replay.graphics.OffscreenSurface.prototype.initialize_ = function() {
   var gl = this.context_;
 
   this.webGLState_.backup();
 
-  // Create the intermediate framebuffer for rendering.
+  // Create the offscreen framebuffer.
   this.framebuffer_ = gl.createFramebuffer();
   gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, this.framebuffer_);
 
-  // Create the texture that the framebuffer should render into.
-  this.rtt_ = gl.createTexture();
-  gl.bindTexture(goog.webgl.TEXTURE_2D, this.rtt_);
+  // Create the texture and set it as a render target for the framebuffer.
+  this.texture_ = gl.createTexture();
+  gl.bindTexture(goog.webgl.TEXTURE_2D, this.texture_);
   gl.texParameteri(goog.webgl.TEXTURE_2D, goog.webgl.TEXTURE_MAG_FILTER,
       goog.webgl.LINEAR);
   gl.texParameteri(goog.webgl.TEXTURE_2D, goog.webgl.TEXTURE_MIN_FILTER,
@@ -162,16 +163,14 @@ wtf.replay.graphics.IntermediateBuffer.prototype.initialize_ = function() {
   gl.texImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, this.width_,
       this.height_, 0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
   gl.framebufferTexture2D(goog.webgl.FRAMEBUFFER,
-      goog.webgl.COLOR_ATTACHMENT0, goog.webgl.TEXTURE_2D, this.rtt_, 0);
+      goog.webgl.COLOR_ATTACHMENT0, goog.webgl.TEXTURE_2D, this.texture_, 0);
 
   // Create a renderbuffer for depth information.
-  this.renderbuffer_ = gl.createRenderbuffer();
-  gl.bindRenderbuffer(goog.webgl.RENDERBUFFER, this.renderbuffer_);
-  gl.renderbufferStorage(goog.webgl.RENDERBUFFER,
-      goog.webgl.DEPTH_COMPONENT16, this.width_, this.height_);
+  this.depthBuffer_ = gl.createRenderbuffer();
+  this.initializeRenderbuffers_();
   gl.framebufferRenderbuffer(goog.webgl.FRAMEBUFFER,
       goog.webgl.DEPTH_ATTACHMENT, goog.webgl.RENDERBUFFER,
-      this.renderbuffer_);
+      this.depthBuffer_);
 
   // Create a program to draw a texture.
   var program = gl.createProgram();
@@ -211,7 +210,7 @@ wtf.replay.graphics.IntermediateBuffer.prototype.initialize_ = function() {
   gl.deleteShader(drawTextureVertexShader);
   gl.deleteShader(drawTextureFragmentShader);
 
-  // Setup attributes aVertexPosition and aTextureCoord
+  // Setup attributes aVertexPosition and aTextureCoord.
   this.squareVertexPositionBuffer_ = gl.createBuffer();
   gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this.squareVertexPositionBuffer_);
   var vertices = [
@@ -241,27 +240,41 @@ wtf.replay.graphics.IntermediateBuffer.prototype.initialize_ = function() {
 
 
 /**
+ * Initializes renderbuffers using this.width_ and this.height_.
+ * @private
+ */
+wtf.replay.graphics.OffscreenSurface.prototype.initializeRenderbuffers_ =
+    function() {
+  var gl = this.context_;
+
+  gl.bindRenderbuffer(goog.webgl.RENDERBUFFER, this.depthBuffer_);
+  gl.renderbufferStorage(goog.webgl.RENDERBUFFER,
+      goog.webgl.DEPTH_COMPONENT16, this.width_, this.height_);
+};
+
+
+/**
  * Prevents resizing until enableResize is called.
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.disableResize = function() {
+wtf.replay.graphics.OffscreenSurface.prototype.disableResize = function() {
   this.resizeDisabled_ = true;
 };
 
 
 /**
- * Restore resizing.
+ * Restores resizing.
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.enableResize = function() {
+wtf.replay.graphics.OffscreenSurface.prototype.enableResize = function() {
   this.resizeDisabled_ = false;
 };
 
 
 /**
- * Resize the render texture and renderbuffer.
+ * Resizes the render texture and depthBuffer.
  * @param {!number} width The new width of the rendered area.
  * @param {!number} height The new height of the rendered area.
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.resize = function(
+wtf.replay.graphics.OffscreenSurface.prototype.resize = function(
     width, height) {
   var gl = this.context_;
 
@@ -275,13 +288,11 @@ wtf.replay.graphics.IntermediateBuffer.prototype.resize = function(
   this.width_ = width;
   this.height_ = height;
 
-  gl.bindTexture(goog.webgl.TEXTURE_2D, this.rtt_);
+  gl.bindTexture(goog.webgl.TEXTURE_2D, this.texture_);
   gl.texImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, this.width_,
       this.height_, 0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
 
-  gl.bindRenderbuffer(goog.webgl.RENDERBUFFER, this.renderbuffer_);
-  gl.renderbufferStorage(goog.webgl.RENDERBUFFER,
-      goog.webgl.DEPTH_COMPONENT16, this.width_, this.height_);
+  this.initializeRenderbuffers_();
 
   this.webGLState_.restore();
 };
@@ -290,7 +301,7 @@ wtf.replay.graphics.IntermediateBuffer.prototype.resize = function(
 /**
  * Binds the internal framebuffer.
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.bindFramebuffer = function() {
+wtf.replay.graphics.OffscreenSurface.prototype.bindFramebuffer = function() {
   var gl = this.context_;
 
   gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, this.framebuffer_);
@@ -300,13 +311,13 @@ wtf.replay.graphics.IntermediateBuffer.prototype.bindFramebuffer = function() {
 /**
  * Captures the pixel contents of the active framebuffer in the texture.
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.captureTexture = function() {
+wtf.replay.graphics.OffscreenSurface.prototype.captureTexture = function() {
   var gl = this.context_;
 
   var originalTextureBinding = /** @type {!WebGLTexture} */ (
       gl.getParameter(goog.webgl.TEXTURE_BINDING_2D));
 
-  gl.bindTexture(goog.webgl.TEXTURE_2D, this.rtt_);
+  gl.bindTexture(goog.webgl.TEXTURE_2D, this.texture_);
   var alpha = gl.getContextAttributes()['alpha'];
   var format = alpha ? goog.webgl.RGBA : goog.webgl.RGB;
   gl.copyTexImage2D(goog.webgl.TEXTURE_2D, 0, format, 0, 0,
@@ -319,7 +330,7 @@ wtf.replay.graphics.IntermediateBuffer.prototype.captureTexture = function() {
 /**
  * Clears the framebuffer and the attached render texture.
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.clear = function() {
+wtf.replay.graphics.OffscreenSurface.prototype.clear = function() {
   var gl = this.context_;
 
   this.webGLState_.backup();
@@ -337,7 +348,7 @@ wtf.replay.graphics.IntermediateBuffer.prototype.clear = function() {
  * Draws the render texture using an internal shader to the active framebuffer.
  * @param {boolean=} opt_blend If true, use alpha blending. Otherwise no blend.
  */
-wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function(
+wtf.replay.graphics.OffscreenSurface.prototype.drawTexture = function(
     opt_blend) {
   var gl = this.context_;
 
@@ -378,7 +389,7 @@ wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function(
   var uniformLocation = gl.getUniformLocation(this.drawTextureProgram_,
       'uSampler');
   gl.activeTexture(goog.webgl.TEXTURE0);
-  gl.bindTexture(goog.webgl.TEXTURE_2D, this.rtt_);
+  gl.bindTexture(goog.webgl.TEXTURE_2D, this.texture_);
   gl.uniform1i(uniformLocation, 0);
 
   // Change states prior to drawing.
@@ -397,7 +408,7 @@ wtf.replay.graphics.IntermediateBuffer.prototype.drawTexture = function(
     gl.disable(goog.webgl.BLEND);
   }
 
-  // Draw the intermediate buffer's render texture to the current framebuffer.
+  // Draw the texture to the current framebuffer.
   gl.drawArrays(goog.webgl.TRIANGLES, 0, 6);
 
   this.webGLState_.restore();
