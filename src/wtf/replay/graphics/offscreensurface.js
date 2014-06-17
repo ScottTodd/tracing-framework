@@ -57,6 +57,13 @@ wtf.replay.graphics.OffscreenSurface = function(gl, width, height) {
   this.height_ = height;
 
   /**
+   * Context attributes. These cannot be changed after getting the context.
+   * @type {Object.<string, boolean>}
+   * @private
+   */
+  this.contextAttributes_ = gl.getContextAttributes();
+
+  /**
    * A backup/restore utility for this context.
    * @type {!wtf.replay.graphics.WebGLState}
    * @private
@@ -86,11 +93,28 @@ wtf.replay.graphics.OffscreenSurface = function(gl, width, height) {
   this.texture_ = null;
 
   /**
-   * Renderbuffer used for depth information in the framebuffer.
+   * Renderbuffer used for depth/stencil information in the framebuffer.
+   * If depth is enabled and stencil is not, this stores only depth data, etc.
    * @type {WebGLRenderbuffer}
    * @private
    */
-  this.depthBuffer_ = null;
+  this.depthStencilBuffer_ = null;
+
+  /**
+   * Renderbuffer attachment format, varies with depth and stencil.
+   * Options: goog.webgl.{DEPTH, STENCIL, DEPTH_STENCIL}_ATTACHMENT.
+   * @type {?number}
+   * @private
+   */
+  this.rbAttachmentFormat_ = null;
+
+  /**
+   * Renderbuffer storage format, varies with depth and stencil.
+   * Options: goog.webgl.{DEPTH_STENCIL, DEPTH_COMPONENT16, STENCIL_INDEX8}.
+   * @type {?number}
+   * @private
+   */
+  this.rbStorageFormat_ = null;
 
   /**
    * A shader program that simply draws a texture.
@@ -127,7 +151,9 @@ wtf.replay.graphics.OffscreenSurface.prototype.disposeInternal = function() {
 
   gl.deleteFramebuffer(this.framebuffer_);
   gl.deleteTexture(this.texture_);
-  gl.deleteRenderbuffer(this.depthBuffer_);
+  if (this.depthStencilBuffer_) {
+    gl.deleteRenderbuffer(this.depthStencilBuffer_);
+  }
   gl.deleteProgram(this.drawTextureProgram_);
   gl.deleteBuffer(this.squareVertexPositionBuffer_);
   gl.deleteBuffer(this.squareTextureCoordBuffer_);
@@ -165,12 +191,25 @@ wtf.replay.graphics.OffscreenSurface.prototype.initialize_ = function() {
   gl.framebufferTexture2D(goog.webgl.FRAMEBUFFER,
       goog.webgl.COLOR_ATTACHMENT0, goog.webgl.TEXTURE_2D, this.texture_, 0);
 
-  // Create a renderbuffer for depth information.
-  this.depthBuffer_ = gl.createRenderbuffer();
-  this.initializeRenderbuffers_();
-  gl.framebufferRenderbuffer(goog.webgl.FRAMEBUFFER,
-      goog.webgl.DEPTH_ATTACHMENT, goog.webgl.RENDERBUFFER,
-      this.depthBuffer_);
+  // Set renderbuffer attachment and storage formats based on context attribs.
+  if (this.contextAttributes_['depth'] && this.contextAttributes_['stencil']) {
+    this.rbAttachmentFormat_ = goog.webgl.DEPTH_STENCIL_ATTACHMENT;
+    this.rbStorageFormat_ = goog.webgl.DEPTH_STENCIL;
+  } else if (this.contextAttributes_['depth']) {
+    this.rbAttachmentFormat_ = goog.webgl.DEPTH_ATTACHMENT;
+    this.rbStorageFormat_ = goog.webgl.DEPTH_COMPONENT16;
+  } else if (this.contextAttributes_['stencil']) {
+    this.rbAttachmentFormat_ = goog.webgl.STENCIL_ATTACHMENT;
+    this.rbStorageFormat_ = goog.webgl.STENCIL_INDEX8;
+  }
+  // Create renderbuffer, supporting depth/stencil as enabled in the context.
+  if (this.rbAttachmentFormat_) {
+    this.depthStencilBuffer_ = gl.createRenderbuffer();
+    this.updateRenderbuffer_();
+    gl.framebufferRenderbuffer(goog.webgl.FRAMEBUFFER,
+        this.rbAttachmentFormat_, goog.webgl.RENDERBUFFER,
+        this.depthStencilBuffer_);
+  }
 
   // Create a program to draw a texture.
   var program = gl.createProgram();
@@ -240,16 +279,18 @@ wtf.replay.graphics.OffscreenSurface.prototype.initialize_ = function() {
 
 
 /**
- * Initializes renderbuffers using this.width_ and this.height_.
+ * Updates renderbuffer using this.width_ and this.height_.
  * @private
  */
-wtf.replay.graphics.OffscreenSurface.prototype.initializeRenderbuffers_ =
+wtf.replay.graphics.OffscreenSurface.prototype.updateRenderbuffer_ =
     function() {
   var gl = this.context_;
 
-  gl.bindRenderbuffer(goog.webgl.RENDERBUFFER, this.depthBuffer_);
-  gl.renderbufferStorage(goog.webgl.RENDERBUFFER,
-      goog.webgl.DEPTH_COMPONENT16, this.width_, this.height_);
+  if (this.rbStorageFormat_) {
+    gl.bindRenderbuffer(goog.webgl.RENDERBUFFER, this.depthStencilBuffer_);
+    gl.renderbufferStorage(goog.webgl.RENDERBUFFER, this.rbStorageFormat_,
+        this.width_, this.height_);
+  }
 };
 
 
@@ -270,7 +311,7 @@ wtf.replay.graphics.OffscreenSurface.prototype.enableResize = function() {
 
 
 /**
- * Resizes the render texture and depthBuffer.
+ * Resizes the render texture and depthStencilBuffer.
  * @param {!number} width The new width of the rendered area.
  * @param {!number} height The new height of the rendered area.
  */
@@ -292,7 +333,7 @@ wtf.replay.graphics.OffscreenSurface.prototype.resize = function(
   gl.texImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, this.width_,
       this.height_, 0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
 
-  this.initializeRenderbuffers_();
+  this.updateRenderbuffer_();
 
   this.webGLState_.restore();
 };
@@ -318,7 +359,7 @@ wtf.replay.graphics.OffscreenSurface.prototype.captureTexture = function() {
       gl.getParameter(goog.webgl.TEXTURE_BINDING_2D));
 
   gl.bindTexture(goog.webgl.TEXTURE_2D, this.texture_);
-  var alpha = gl.getContextAttributes()['alpha'];
+  var alpha = this.contextAttributes_['alpha'];
   var format = alpha ? goog.webgl.RGBA : goog.webgl.RGB;
   gl.copyTexImage2D(goog.webgl.TEXTURE_2D, 0, format, 0, 0,
       this.width_, this.height_, 0);
@@ -328,7 +369,7 @@ wtf.replay.graphics.OffscreenSurface.prototype.captureTexture = function() {
 
 
 /**
- * Clears the framebuffer and the attached render texture.
+ * Clears framebuffer, texture, and depth/stencil buffer completely.
  */
 wtf.replay.graphics.OffscreenSurface.prototype.clear = function() {
   var gl = this.context_;
@@ -338,7 +379,8 @@ wtf.replay.graphics.OffscreenSurface.prototype.clear = function() {
   this.bindFramebuffer();
   gl.clearColor(0.0, 0.0, 0.0, 0.0);
   gl.disable(goog.webgl.SCISSOR_TEST);
-  gl.clear(goog.webgl.COLOR_BUFFER_BIT | goog.webgl.DEPTH_BUFFER_BIT);
+  gl.clear(goog.webgl.COLOR_BUFFER_BIT | goog.webgl.DEPTH_BUFFER_BIT |
+      goog.webgl.STENCIL_BUFFER_BIT);
 
   this.webGLState_.restore();
 };

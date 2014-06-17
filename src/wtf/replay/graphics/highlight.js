@@ -192,6 +192,8 @@ wtf.replay.graphics.Highlight.prototype.processPerformDraw = function(
   highlightSurface.bindFramebuffer();
   var program = this.programs_[programHandle];
 
+  gl.disable(goog.webgl.STENCIL_TEST);
+
   var highlightColor;
   if (!this.secondaryHighlight_) {
     highlightColor = [0.1, 0.2, 0.5, 1.0];
