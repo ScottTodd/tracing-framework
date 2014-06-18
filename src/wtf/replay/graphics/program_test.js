@@ -17,17 +17,16 @@ goog.require('wtf.replay.graphics.Program');
  */
 wtf.replay.graphics.Program_test =
     suite('wtf.replay.graphics.Program', function() {
-  var contextPool, context, testProgram, testVertexShader, testFragmentShader;
-
   // Only run this test if the DOM exists, since this requires a WebGL context.
   if (!window || !window.document) {
     return;
   }
 
+  var contextPool = new wtf.replay.graphics.ContextPool();
+  var context, testProgram, testVertexShader, testFragmentShader;
+
   setup(function() {
-    // Get a WebGL context from ContextPool.
-    contextPool = new wtf.replay.graphics.ContextPool();
-    assert.isNotNull(contextPool);
+    // Get a WebGL context from the ContextPool.
     context = contextPool.getContext('webgl');
     assert.isNotNull(context);
 
@@ -82,11 +81,14 @@ wtf.replay.graphics.Program_test =
     context.deleteProgram(testProgram);
 
     contextPool.releaseContext(context);
+
+    goog.dispose(contextPool);
   });
 
   test('#ctor', function() {
     var program = new wtf.replay.graphics.Program(testProgram, context);
     assert.isNotNull(program);
+    goog.dispose(program);
   });
 
   test('#createVariantProgram', function() {
@@ -122,6 +124,8 @@ wtf.replay.graphics.Program_test =
     var uniformLocation = context.getUniformLocation(customVariantProgram,
         'customColor');
     assert.isNotNull(uniformLocation);
+
+    goog.dispose(program);
   });
 
   test('#deleteVariants', function() {
@@ -147,6 +151,8 @@ wtf.replay.graphics.Program_test =
 
     // The variant program should no longer be a program.
     assert.isFalse(context.isProgram(unchangedVariantProgram));
+
+    goog.dispose(program);
   });
 
   test('#drawWithVariant', function() {
@@ -194,5 +200,7 @@ wtf.replay.graphics.Program_test =
     var uniformValue = context.getUniform(customVariantProgram,
         uniformLocationVariant);
     assert.equal(uniformValue, originalUniformValue);
+
+    goog.dispose(program);
   });
 });
