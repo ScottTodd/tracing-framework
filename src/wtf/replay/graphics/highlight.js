@@ -108,6 +108,7 @@ wtf.replay.graphics.Highlight.prototype.handleDrawCall = function(
   gl.blendEquation(goog.webgl.FUNC_ADD);
   gl.enable(goog.webgl.STENCIL_TEST);
   if (this.firstDraw_) {
+    gl.colorMask(true, true, true, true);
     gl.disable(goog.webgl.DEPTH_TEST);
     gl.disable(goog.webgl.CULL_FACE);
     // The stencil should already be cleared to all 0s.

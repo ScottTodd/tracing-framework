@@ -64,6 +64,34 @@ wtf.replay.graphics.Overdraw = function(playback) {
    * @private
    */
   this.previousVisibility_ = false;
+
+  this.calls['WebGLRenderingContext#clear'] = function(
+      visualizer, gl, args, callFunction) {
+    if (!visualizer.active) {
+      return;
+    }
+
+    callFunction();
+
+    if (!visualizer.modifyDraws) {
+      return;
+    }
+
+    var contextHandle = visualizer.latestContextHandle;
+
+    // Do not edit calls where the target is not the visible framebuffer.
+    var originalFramebuffer = /** @type {WebGLFramebuffer} */ (
+        gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING));
+    if (originalFramebuffer != null) {
+      return;
+    }
+
+    var visualizerSurface = visualizer.visualizerSurfaces[contextHandle];
+    visualizerSurface.bindFramebuffer();
+    visualizerSurface.drawThresholdTexture(true, false);
+
+    gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
+  };
 };
 goog.inherits(wtf.replay.graphics.Overdraw,
     wtf.replay.graphics.DrawCallVisualizer);
@@ -159,6 +187,7 @@ wtf.replay.graphics.Overdraw.prototype.handleDrawCall = function(
   gl.enable(goog.webgl.BLEND);
   gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
   gl.blendEquation(goog.webgl.FUNC_ADD);
+  gl.colorMask(true, true, true, true);
 
   program.drawWithVariant(drawFunction, 'overdraw');
 

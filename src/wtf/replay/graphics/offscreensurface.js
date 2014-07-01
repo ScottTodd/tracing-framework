@@ -144,6 +144,13 @@ wtf.replay.graphics.OffscreenSurface = function(gl, width, height, opt_args) {
   this.texture_ = null;
 
   /**
+   * Internal texture. Used with drawThresholdTexture.
+   * @type {WebGLTexture}
+   * @private
+   */
+  this.thresholdTexture_ = null;
+
+  /**
    * Renderbuffer used for depth/stencil information in the framebuffer.
    * If depth is enabled and stencil is not, this stores only depth data, etc.
    * @type {WebGLRenderbuffer}
@@ -207,6 +214,7 @@ wtf.replay.graphics.OffscreenSurface.prototype.disposeInternal = function() {
   if (this.initialized_) {
     gl.deleteFramebuffer(this.framebuffer_);
     gl.deleteTexture(this.texture_);
+    gl.deleteTexture(this.thresholdTexture_);
     if (this.depthStencilBuffer_) {
       gl.deleteRenderbuffer(this.depthStencilBuffer_);
     }
@@ -298,6 +306,28 @@ wtf.replay.graphics.OffscreenSurface.prototype.initialize_ = function() {
         this.rbAttachmentFormat_, goog.webgl.RENDERBUFFER,
         this.depthStencilBuffer_);
   }
+
+  // Create threshold texture.
+  this.thresholdTexture_ = gl.createTexture();
+  gl.bindTexture(goog.webgl.TEXTURE_2D, this.thresholdTexture_);
+  gl.texParameteri(goog.webgl.TEXTURE_2D, goog.webgl.TEXTURE_MAG_FILTER,
+      goog.webgl.LINEAR);
+  gl.texParameteri(goog.webgl.TEXTURE_2D, goog.webgl.TEXTURE_MIN_FILTER,
+      goog.webgl.LINEAR);
+  gl.texParameteri(goog.webgl.TEXTURE_2D, goog.webgl.TEXTURE_WRAP_S,
+      goog.webgl.CLAMP_TO_EDGE);
+  gl.texParameteri(goog.webgl.TEXTURE_2D, goog.webgl.TEXTURE_WRAP_T,
+      goog.webgl.CLAMP_TO_EDGE);
+  gl.texImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, this.width_,
+      this.height_, 0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
+  // Copy threshold color into the texture.
+  gl.clearColor(1.0, 1.0, 1.0, this.thresholdValuePerCall_);
+  gl.clear(goog.webgl.COLOR_BUFFER_BIT);
+  gl.copyTexImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, 0, 0,
+      this.width_, this.height_, 0);
+  // Clear the framebuffer back to the default color.
+  gl.clearColor(0.0, 0.0, 0.0, 1.0);
+  gl.clear(goog.webgl.COLOR_BUFFER_BIT);
 
   // Create a program to draw a texture.
   var program = gl.createProgram();
@@ -456,7 +486,20 @@ wtf.replay.graphics.OffscreenSurface.prototype.resize = function(
   gl.texImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, this.width_,
       this.height_, 0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
 
+  gl.bindTexture(goog.webgl.TEXTURE_2D, this.thresholdTexture_);
+  gl.texImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, this.width_,
+      this.height_, 0, goog.webgl.RGBA, goog.webgl.UNSIGNED_BYTE, null);
+
   this.updateRenderbuffer_();
+
+  gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, this.framebuffer_);
+  gl.clearColor(1.0, 1.0, 1.0, this.thresholdValuePerCall_);
+  gl.clear(goog.webgl.COLOR_BUFFER_BIT);
+  gl.copyTexImage2D(goog.webgl.TEXTURE_2D, 0, goog.webgl.RGBA, 0, 0,
+      this.width_, this.height_, 0);
+  // Clear the framebuffer back to the default color.
+  gl.clearColor(0.0, 0.0, 0.0, 1.0);
+  gl.clear(goog.webgl.COLOR_BUFFER_BIT);
 
   this.webGLState_.restore();
 };
@@ -531,6 +574,30 @@ wtf.replay.graphics.OffscreenSurface.prototype.clear = function(opt_color) {
  */
 wtf.replay.graphics.OffscreenSurface.prototype.drawTexture = function(
     opt_blend, opt_threshold) {
+  this.drawTextureInternal_(this.texture_, opt_blend, opt_threshold);
+};
+
+
+/**
+ * Draws a threshold texture with an internal shader to the active framebuffer.
+ * @param {boolean=} opt_blend If true, use alpha blending. Otherwise no blend.
+ * @param {boolean=} opt_threshold If true, draw thresholded colors.
+ */
+wtf.replay.graphics.OffscreenSurface.prototype.drawThresholdTexture = function(
+    opt_blend, opt_threshold) {
+  this.drawTextureInternal_(this.thresholdTexture_, opt_blend, opt_threshold);
+};
+
+
+/**
+ * Draws a texture using the internal shader to the active framebuffer.
+ * @param {WebGLTexture} texture The texture to draw.
+ * @param {boolean=} opt_blend If true, use alpha blending. Otherwise no blend.
+ * @param {boolean=} opt_threshold If true, draw thresholded colors.
+ * @private
+ */
+wtf.replay.graphics.OffscreenSurface.prototype.drawTextureInternal_ = function(
+    texture, opt_blend, opt_threshold) {
   this.initialize_();
 
   var gl = this.context_;
@@ -574,7 +641,7 @@ wtf.replay.graphics.OffscreenSurface.prototype.drawTexture = function(
 
   var uniformLocation = gl.getUniformLocation(drawTextureProgram, 'uSampler');
   gl.activeTexture(goog.webgl.TEXTURE0);
-  gl.bindTexture(goog.webgl.TEXTURE_2D, this.texture_);
+  gl.bindTexture(goog.webgl.TEXTURE_2D, texture);
   gl.uniform1i(uniformLocation, 0);
 
   // Change states prior to drawing.
