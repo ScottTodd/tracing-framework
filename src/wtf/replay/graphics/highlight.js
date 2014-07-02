@@ -36,6 +36,40 @@ wtf.replay.graphics.Highlight = function(playback) {
    * @private
    */
   this.firstDraw_ = true;
+
+  this.calls['WebGLRenderingContext#clear'] = function(
+      visualizer, gl, args, callFunction) {
+    if (!visualizer.active) {
+      return;
+    }
+
+    callFunction();
+
+    if (!visualizer.modifyDraws) {
+      return;
+    }
+
+    var contextHandle = visualizer.latestContextHandle;
+    var visualizerSurface = visualizer.visualizerSurfaces[contextHandle];
+    var drawToSurfaceFunction = function() {
+      visualizerSurface.drawQuad();
+    };
+
+    var webGLState = visualizer.webGLStates[contextHandle];
+    webGLState.backup();
+
+    // Force states to mimic clear behavior.
+    // Let drawToSurface handle stencil for highlighting.
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(false);
+    gl.disable(goog.webgl.DEPTH_TEST);
+    gl.disable(goog.webgl.CULL_FACE);
+    gl.frontFace(goog.webgl.CCW);
+
+    visualizer.drawToSurface_(drawToSurfaceFunction);
+
+    webGLState.restore();
+  };
 };
 goog.inherits(wtf.replay.graphics.Highlight,
     wtf.replay.graphics.DrawCallVisualizer);
@@ -107,6 +141,29 @@ wtf.replay.graphics.Highlight.prototype.handleDrawCall = function(
     return;
   }
 
+  var program = this.programs[programHandle];
+  var drawToSurfaceFunction = function() {
+    program.drawWithVariant(drawFunction, 'highlight');
+  };
+
+  var webGLState = this.webGLStates[contextHandle];
+  webGLState.backup();
+
+  this.drawToSurface_(drawToSurfaceFunction);
+
+  webGLState.restore();
+};
+
+
+/**
+ * Calls drawFunction onto the active visualizerSurface using custom GL state.
+ * The caller of this function is responsible for restoring state.
+ * @param {!function()} drawFunction The draw function to call.
+ * @private
+ */
+wtf.replay.graphics.Highlight.prototype.drawToSurface_ = function(
+    drawFunction) {
+  var contextHandle = this.latestContextHandle;
   var gl = this.contexts[contextHandle];
 
   // Do not edit calls where the target is not the visible framebuffer.
@@ -116,13 +173,9 @@ wtf.replay.graphics.Highlight.prototype.handleDrawCall = function(
     return;
   }
 
-  var webGLState = this.webGLStates[contextHandle];
-  webGLState.backup();
-
   // Render with the highlight program into the visualizer surface.
   var visualizerSurface = this.visualizerSurfaces[contextHandle];
   visualizerSurface.bindFramebuffer();
-  var program = this.programs[programHandle];
 
   gl.enable(goog.webgl.BLEND);
   gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
@@ -145,9 +198,7 @@ wtf.replay.graphics.Highlight.prototype.handleDrawCall = function(
     gl.stencilOp(goog.webgl.KEEP, goog.webgl.KEEP, goog.webgl.KEEP);
   }
 
-  program.drawWithVariant(drawFunction, 'highlight');
-
-  webGLState.restore();
+  drawFunction();
 };
 
 

@@ -462,6 +462,7 @@ wtf.replay.graphics.OffscreenSurface.prototype.clear = function(opt_color) {
  */
 wtf.replay.graphics.OffscreenSurface.prototype.drawTexture = function(
     opt_blend) {
+  this.initialize();
   this.drawTextureInternal(this.texture_, this.drawTextureProgram_, opt_blend);
 };
 

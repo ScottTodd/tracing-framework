@@ -215,16 +215,17 @@ wtf.replay.graphics.OverdrawSurface.prototype.initialize = function() {
  */
 wtf.replay.graphics.OffscreenSurface.prototype.drawOverdraw = function(
     opt_blend) {
+  this.initialize();
   this.drawTextureInternal(this.texture_, this.drawOverdrawProgram_, opt_blend);
 };
 
 
 /**
  * Draws a quad over the screen using the threshold color.
- * Respects the scissor test settings, can be used to draw what clear affects.
- * @param {boolean=} opt_blend If true, use alpha blending. Otherwise no blend.
+ * Can be used to draw what clear affects.
+ * Does not update blending, depth, scissor, stencil, or related WebGL states.
  */
-wtf.replay.graphics.OffscreenSurface.prototype.drawQuad = function(opt_blend) {
+wtf.replay.graphics.OffscreenSurface.prototype.drawQuad = function() {
   var gl = this.context;
 
   this.webGLState.backup();
@@ -250,21 +251,6 @@ wtf.replay.graphics.OffscreenSurface.prototype.drawQuad = function(opt_blend) {
   var ext = gl.getExtension('ANGLE_instanced_arrays');
   if (ext) {
     ext['vertexAttribDivisorANGLE'](vertexAttribLocation, 0);
-  }
-
-  // Change states prior to drawing.
-  gl.disable(goog.webgl.CULL_FACE);
-  gl.frontFace(goog.webgl.CCW);
-  gl.disable(goog.webgl.DEPTH_TEST);
-  gl.disable(goog.webgl.DITHER);
-  gl.disable(goog.webgl.STENCIL_TEST);
-  gl.colorMask(true, true, true, true);
-
-  if (opt_blend) {
-    gl.enable(goog.webgl.BLEND);
-    gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
-  } else {
-    gl.disable(goog.webgl.BLEND);
   }
 
   // Draw to the current framebuffer.

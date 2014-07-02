@@ -79,19 +79,24 @@ wtf.replay.graphics.Overdraw = function(playback) {
     }
 
     var contextHandle = visualizer.latestContextHandle;
-
-    // Do not edit calls where the target is not the visible framebuffer.
-    var originalFramebuffer = /** @type {WebGLFramebuffer} */ (
-        gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING));
-    if (originalFramebuffer != null) {
-      return;
-    }
-
     var visualizerSurface = visualizer.visualizerSurfaces[contextHandle];
-    visualizerSurface.bindFramebuffer();
-    visualizerSurface.drawQuad(true);
+    var drawToSurfaceFunction = function() {
+      visualizerSurface.drawQuad();
+    };
 
-    gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
+    var webGLState = visualizer.webGLStates[contextHandle];
+    webGLState.backup();
+
+    // Force states to mimic clear behavior.
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(false);
+    gl.disable(goog.webgl.DEPTH_TEST);
+    gl.disable(goog.webgl.CULL_FACE);
+    gl.frontFace(goog.webgl.CCW);
+
+    visualizer.drawToSurface_(drawToSurfaceFunction);
+
+    webGLState.restore();
   };
 };
 goog.inherits(wtf.replay.graphics.Overdraw,
@@ -186,6 +191,28 @@ wtf.replay.graphics.Overdraw.prototype.handleDrawCall = function(
     return;
   }
 
+  var program = this.programs[programHandle];
+  var drawToSurfaceFunction = function() {
+    program.drawWithVariant(drawFunction, 'overdraw');
+  };
+
+  var webGLState = this.webGLStates[contextHandle];
+  webGLState.backup();
+
+  this.drawToSurface_(drawToSurfaceFunction);
+
+  webGLState.restore();
+};
+
+
+/**
+ * Calls drawFunction onto the active visualizerSurface using custom GL state.
+ * The caller of this function is responsible for restoring state.
+ * @param {!function()} drawFunction The draw function to call.
+ * @private
+ */
+wtf.replay.graphics.Overdraw.prototype.drawToSurface_ = function(drawFunction) {
+  var contextHandle = this.latestContextHandle;
   var gl = this.contexts[contextHandle];
 
   // Do not edit calls where the target is not the visible framebuffer.
@@ -195,13 +222,7 @@ wtf.replay.graphics.Overdraw.prototype.handleDrawCall = function(
     return;
   }
 
-  var webGLState = this.webGLStates[contextHandle];
   var visualizerSurface = this.visualizerSurfaces[contextHandle];
-
-  webGLState.backup();
-
-  // Draw overdraw variant into visualizerSurface.
-  var program = this.programs[programHandle];
   visualizerSurface.bindFramebuffer();
 
   gl.disable(goog.webgl.STENCIL_TEST);
@@ -210,10 +231,7 @@ wtf.replay.graphics.Overdraw.prototype.handleDrawCall = function(
   gl.blendEquation(goog.webgl.FUNC_ADD);
   gl.colorMask(true, true, true, true);
 
-  program.drawWithVariant(drawFunction, 'overdraw');
-
-  // Restore state, including the active framebuffer.
-  webGLState.restore();
+  drawFunction();
 };
 
 
