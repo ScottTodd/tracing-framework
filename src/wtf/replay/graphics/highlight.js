@@ -15,6 +15,7 @@ goog.provide('wtf.replay.graphics.Highlight');
 
 goog.require('goog.webgl');
 goog.require('wtf.replay.graphics.DrawCallVisualizer');
+goog.require('wtf.replay.graphics.OverdrawSurface');
 goog.require('wtf.replay.graphics.Program');
 
 
@@ -38,6 +39,26 @@ wtf.replay.graphics.Highlight = function(playback) {
 };
 goog.inherits(wtf.replay.graphics.Highlight,
     wtf.replay.graphics.DrawCallVisualizer);
+
+
+/**
+ * Creates an OverdrawSurface and adds it to this.visualizerSurfaces.
+ * @param {!number|string} contextHandle Context handle from event arguments.
+ * @param {!WebGLRenderingContext} gl The context.
+ * @param {number} width The width of the surface.
+ * @param {number} height The height of the surface.
+ * @protected
+ * @override
+ */
+wtf.replay.graphics.Highlight.prototype.createSurface = function(
+    contextHandle, gl, width, height) {
+  var args = {};
+  args['stencil'] = true;
+  var visualizerSurface = new wtf.replay.graphics.OverdrawSurface(gl,
+      width, height, args);
+  this.visualizerSurfaces[contextHandle] = visualizerSurface;
+  this.registerDisposable(visualizerSurface);
+};
 
 
 /**
@@ -177,7 +198,7 @@ wtf.replay.graphics.Highlight.prototype.trigger = function(opt_args) {
   // Draw captured visualizer textures.
   for (contextHandle in this.contexts) {
     // Draw without thresholding to calculate overdraw.
-    this.visualizerSurfaces[contextHandle].drawTexture(false, false);
+    this.visualizerSurfaces[contextHandle].drawTexture(false);
 
     // Calculate overdraw and update the context's message.
     var stats = this.visualizerSurfaces[contextHandle].calculateOverdraw();
@@ -194,9 +215,9 @@ wtf.replay.graphics.Highlight.prototype.trigger = function(opt_args) {
         '% of screen';
     this.playback.changeContextMessage(contextHandle, message);
 
-    this.playbackSurfaces[contextHandle].drawTexture(false, false);
+    this.playbackSurfaces[contextHandle].drawTexture(false);
     // Draw for display, with thresholding and blending (to not overwrite).
-    this.visualizerSurfaces[contextHandle].drawTexture(true, true);
+    this.visualizerSurfaces[contextHandle].drawOverdraw(true);
     this.visualizerSurfaces[contextHandle].enableResize();
   }
 

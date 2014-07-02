@@ -16,6 +16,7 @@ goog.provide('wtf.replay.graphics.Overdraw');
 goog.require('goog.events');
 goog.require('goog.webgl');
 goog.require('wtf.replay.graphics.DrawCallVisualizer');
+goog.require('wtf.replay.graphics.OverdrawSurface');
 goog.require('wtf.replay.graphics.Program');
 
 
@@ -88,7 +89,7 @@ wtf.replay.graphics.Overdraw = function(playback) {
 
     var visualizerSurface = visualizer.visualizerSurfaces[contextHandle];
     visualizerSurface.bindFramebuffer();
-    visualizerSurface.drawThresholdTexture(true, false);
+    visualizerSurface.drawQuad(true);
 
     gl.bindFramebuffer(goog.webgl.FRAMEBUFFER, originalFramebuffer);
   };
@@ -115,6 +116,26 @@ wtf.replay.graphics.Overdraw.EventType = {
  */
 wtf.replay.graphics.Overdraw.prototype.isVisible = function() {
   return this.visible_;
+};
+
+
+/**
+ * Creates an OverdrawSurface and adds it to this.visualizerSurfaces.
+ * @param {!number|string} contextHandle Context handle from event arguments.
+ * @param {!WebGLRenderingContext} gl The context.
+ * @param {number} width The width of the surface.
+ * @param {number} height The height of the surface.
+ * @protected
+ * @override
+ */
+wtf.replay.graphics.Overdraw.prototype.createSurface = function(
+    contextHandle, gl, width, height) {
+  var args = {};
+  args['stencil'] = true;
+  var visualizerSurface = new wtf.replay.graphics.OverdrawSurface(gl,
+      width, height, args);
+  this.visualizerSurfaces[contextHandle] = visualizerSurface;
+  this.registerDisposable(visualizerSurface);
 };
 
 
@@ -219,7 +240,7 @@ wtf.replay.graphics.Overdraw.prototype.trigger = function(opt_args) {
       this.previousVisibility_ = false;
     } else {
       for (contextHandle in this.contexts) {
-        this.drawTexture(this.visualizerSurfaces[contextHandle]);
+        this.drawOverdraw(this.visualizerSurfaces[contextHandle]);
 
         var overdrawAmount = this.latestOverdraws_[contextHandle];
         var message = 'Overdraw: ' + overdrawAmount;
@@ -252,7 +273,7 @@ wtf.replay.graphics.Overdraw.prototype.trigger = function(opt_args) {
 
   for (contextHandle in this.contexts) {
     // Draw without thresholding to calculate overdraw.
-    this.visualizerSurfaces[contextHandle].drawTexture(false, false);
+    this.visualizerSurfaces[contextHandle].drawTexture(false);
 
     // Calculate overdraw and update the context's message.
     var stats = this.visualizerSurfaces[contextHandle].calculateOverdraw();
@@ -263,7 +284,7 @@ wtf.replay.graphics.Overdraw.prototype.trigger = function(opt_args) {
     this.playback.changeContextMessage(contextHandle, message);
 
     // Draw with thresholding for display.
-    this.drawTexture(this.visualizerSurfaces[contextHandle]);
+    this.drawOverdraw(this.visualizerSurfaces[contextHandle]);
 
     this.visualizerSurfaces[contextHandle].disableResize();
     this.playbackSurfaces[contextHandle].disableResize();
@@ -297,9 +318,9 @@ wtf.replay.graphics.Overdraw.prototype.reset = function() {
  * Draws the texture within surface, using overdraw settings.
  * @param {wtf.replay.graphics.OffscreenSurface} surface The surface to draw.
  */
-wtf.replay.graphics.Overdraw.prototype.drawTexture = function(surface) {
-  // Disable blending to overwrite the framebuffer, enable thresholding.
-  surface.drawTexture(false, true);
+wtf.replay.graphics.Overdraw.prototype.drawOverdraw = function(surface) {
+  // Disable blending to overwrite the framebuffer.
+  surface.drawOverdraw(false);
   this.visible_ = true;
   this.emitEvent(wtf.replay.graphics.Overdraw.EventType.VISIBILITY_CHANGED);
 };
