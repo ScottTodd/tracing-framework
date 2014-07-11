@@ -156,6 +156,11 @@ wtf.app.MainDisplay = function(
   if (!startupLoad) {
     this.showSplashDialog_(true);
   }
+
+  // Listen for options changes and save them.
+  this.options_.addListener(
+      wtf.util.Options.EventType.CHANGED, this.saveOptions_, this);
+  this.saveOptions_();
 };
 goog.inherits(wtf.app.MainDisplay, wtf.ui.Control);
 
@@ -173,6 +178,14 @@ wtf.app.MainDisplay.prototype.disposeInternal = function() {
   wtf.events.CommandManager.setShared(null);
 
   goog.base(this, 'disposeInternal');
+};
+
+
+/**
+ * @override
+ */
+wtf.app.MainDisplay.prototype.saveOptions_ = function() {
+  this.options_.save();
 };
 
 
@@ -413,6 +426,69 @@ wtf.app.MainDisplay.prototype.showSettings_ = function() {
               'type': 'label',
               'title': 'Coming soon!',
               'value': ''
+            }
+          ]
+        }
+      ]
+    },
+    {
+      'title': 'WebGL',
+      'sections': [
+        {
+          'title': 'Overdraw',
+          'widgets': [
+            {
+              'type': 'checkbox',
+              'key': 'wtf.replay.graphics.colorClear',
+              'title': 'Color buffer clears',
+              'default': true
+            },
+            {
+              'type': 'checkbox',
+              'key': 'wtf.replay.graphics.depthClear',
+              'title': 'Depth buffer clears',
+              'default': true
+            },
+            {
+              'type': 'checkbox',
+              'key': 'wtf.replay.graphics.stencilClear',
+              'title': 'Stencil buffer clears',
+              'default': true
+            },
+            {
+              'type': 'checkbox',
+              'key': 'wtf.replay.graphics.colorMask',
+              'title': 'Non-color draws (force colorMask to true)',
+              'default': true
+            },
+            {
+              'type': 'checkbox',
+              'key': 'wtf.replay.graphics.depthDisabled',
+              'title': 'Disable the depth test',
+              'default': false
+            },
+            {
+              'type': 'checkbox',
+              'key': 'wtf.replay.graphics.scissorDisabled',
+              'title': 'Disable the scissor test',
+              'default': false
+            },
+            {
+              'type': 'checkbox',
+              'key': 'wtf.replay.graphics.calculateStats',
+              'title': 'Calculate stats (slow)',
+              'default': true
+            }
+          ]
+        },
+        {
+          'title': 'Highlight',
+          'widgets': [
+            {
+              'type': 'checkbox',
+              'key': 'wtf.replay.graphics.highlightOverdraw',
+              'title': 'Show overdraw',
+              'default': true
             }
           ]
         }
