@@ -101,6 +101,14 @@ wtf.replay.graphics.ui.EventNavigatorToolbar = function(
       goog.getCssName('toggleOverdrawButton'));
 
   /**
+   * The show state button.
+   * @type {!Element}
+   * @private
+   */
+  this.showStateButton_ = this.getChildElement(
+      goog.getCssName('showStateButton'));
+
+  /**
    * The options button.
    * @type {!Element}
    * @private
@@ -244,6 +252,10 @@ wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.setReady = function() {
       this.toggleOverdrawButton_,
       goog.events.EventType.CLICK,
       this.toggleOverdrawHandler_, false, this);
+  eh.listen(
+      this.showStateButton_,
+      goog.events.EventType.CLICK,
+      this.showStateHandler_, false, this);
 
   // Setup keyboard shortcuts.
   var keyboard = wtf.events.getWindowKeyboard(this.getDom());
@@ -264,6 +276,9 @@ wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.setReady = function() {
   keyboardScope.addShortcut('v', function() {
     this.toggleOverdrawHandler_();
   }, this);
+  keyboardScope.addShortcut('t', function() {
+    this.showStateHandler_();
+  }, this);
 
   this.setEnabled_(true);
 };
@@ -282,6 +297,7 @@ wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.setEnabled_ =
   this.toggleButton(goog.getCssName('nextDrawCallButton'), enabled);
   this.toggleButton(goog.getCssName('lastCallButton'), enabled);
   this.toggleButton(goog.getCssName('toggleOverdrawButton'), enabled);
+  this.toggleButton(goog.getCssName('showStateButton'), enabled);
   this.searchControl_.setEnabled(enabled);
   this.toggleButton(goog.getCssName('optionsButton'), enabled);
 };
@@ -374,6 +390,20 @@ wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.toggleOverdrawHandler_ =
     var lastSubStep = eventIterator.getCount() - 1;
     this.playback_.visualizeSubStep('overdraw', lastSubStep);
   }
+};
+
+
+/**
+ * Handles clicks of the show state button.
+ * @private
+ */
+wtf.replay.graphics.ui.EventNavigatorToolbar.prototype.showStateHandler_ =
+    function() {
+  if (!this.enabled_) {
+    return;
+  }
+
+  this.playback_.visualizeSubStep('state');
 };
 
 

@@ -195,7 +195,7 @@ wtf.replay.graphics.WebGLState.prototype.backup = function() {
 
   // Backup parameters with simple enum values.
   var numParameters = this.stateParameters_.length;
-  for (var i = 0; i < numParameters; i++) {
+  for (var i = 0; i < numParameters; ++i) {
     var parameter = this.stateParameters_[i];
     this.savedState_[parameter] = gl.getParameter(parameter);
   }
@@ -206,7 +206,7 @@ wtf.replay.graphics.WebGLState.prototype.backup = function() {
       gl.MAX_TEXTURE_IMAGE_UNITS));
   this.savedTextureBinding2Ds_ = [];
   this.savedTextureBindingCubeMaps_ = [];
-  for (var i = 0; i < maxTextureUnits; i++) {
+  for (var i = 0; i < maxTextureUnits; ++i) {
     gl.activeTexture(goog.webgl.TEXTURE0 + i);
     this.savedTextureBinding2Ds_.push(gl.getParameter(
         goog.webgl.TEXTURE_BINDING_2D));
@@ -231,7 +231,7 @@ wtf.replay.graphics.WebGLState.prototype.backup = function() {
   // Backup instancing on attributes as well, if the extension exists.
   // http://www.khronos.org/registry/webgl/extensions/ANGLE_instanced_arrays/
   var instancedArraysExt = gl.getExtension('ANGLE_instanced_arrays');
-  for (var i = 0; i < maxVertexAttribs; i++) {
+  for (var i = 0; i < maxVertexAttribs; ++i) {
     var values = {};
     var numAttribPropertyEnums = attribPropertyEnums.length;
     for (var j = 0; j < numAttribPropertyEnums; j++) {
@@ -262,7 +262,7 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
 
   // Restore toggleable states.
   var toggleStatesLength = this.toggleStates_.length;
-  for (var i = 0; i < toggleStatesLength; i++) {
+  for (var i = 0; i < toggleStatesLength; ++i) {
     var toggleState = this.toggleStates_[i];
     this.savedState_[toggleState] ?
         gl.enable(toggleState) : gl.disable(toggleState);
@@ -349,7 +349,7 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
   // Restore texture bindings
   var maxTextureUnits = /** @type {number} */ (gl.getParameter(
       gl.MAX_TEXTURE_IMAGE_UNITS));
-  for (var i = 0; i < maxTextureUnits; i++) {
+  for (var i = 0; i < maxTextureUnits; ++i) {
     gl.activeTexture(goog.webgl.TEXTURE0 + i);
     gl.bindTexture(goog.webgl.TEXTURE_2D, this.savedTextureBinding2Ds_[i]);
     gl.bindTexture(goog.webgl.TEXTURE_CUBE_MAP,
@@ -360,7 +360,7 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
   // Restore attributes.
   var numSavedAttributes = this.savedAttributes_.length;
   var instancedArraysExt = gl.getExtension('ANGLE_instanced_arrays');
-  for (var i = 0; i < numSavedAttributes; i++) {
+  for (var i = 0; i < numSavedAttributes; ++i) {
     var values = this.savedAttributes_[i];
 
     values[goog.webgl.VERTEX_ATTRIB_ARRAY_ENABLED] ?
@@ -386,4 +386,21 @@ wtf.replay.graphics.WebGLState.prototype.restore = function() {
 
   gl.bindBuffer(goog.webgl.ARRAY_BUFFER,
       this.savedState_[goog.webgl.ARRAY_BUFFER_BINDING]);
+};
+
+
+/**
+ * Displays the backed up state.
+ */
+wtf.replay.graphics.WebGLState.prototype.displayState = function() {
+  // TODO(scotttodd): Output to some DOM element.
+
+  var numParameters = this.stateParameters_.length;
+  for (var i = 0; i < numParameters; ++i) {
+    var parameter = this.stateParameters_[i];
+    goog.global.console.log(parameter + ': ' + this.savedState_[parameter]);
+  }
+
+  // TODO(scotttodd): Match enums to strings
+  // TODO(scotttodd): Format values (hex, color, object, rect, etc.)
 };
