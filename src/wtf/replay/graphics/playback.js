@@ -286,6 +286,11 @@ wtf.replay.graphics.Playback.EventType = {
   PLAY_STOPPED: goog.events.getUniqueId('play_stopped'),
 
   /**
+   * A Visualizer was added.
+   */
+  VISUALIZER_ADDED: goog.events.getUniqueId('visualizer_added'),
+
+  /**
    * A context message was changed.
    */
   CONTEXT_MESSAGE_CHANGED: goog.events.getUniqueId('context_message_changed')
@@ -508,6 +513,10 @@ wtf.replay.graphics.Playback.prototype.addVisualizer = function(
   this.visualizers_.push(visualizer);
   this.visualizerNames_.push(name);
   this.registerDisposable(visualizer);
+
+  // this.emitEvent(wtf.replay.graphics.Playback.EventType.VISUALIZER_ADDED,
+  //   name, visualizer);
+  // goog.global.console.log('emitted event');
 };
 
 

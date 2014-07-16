@@ -159,8 +159,16 @@ wtf.app.MainDisplay = function(
 
   // Listen for options changes and save them.
   this.options_.addListener(
-      wtf.util.Options.EventType.CHANGED, this.saveOptions_, this);
-  this.saveOptions_();
+      wtf.util.Options.EventType.CHANGED,
+      function() {
+        goog.global.console.log('options saved');
+        this.options_.save();
+      }, this);
+
+  // Listen for Visualizers being added.
+  // this.options_.addListener(
+  //     wtf.replay.graphics.Playback.EventType.VISUALIZER_ADDED,
+  //     this.testFunction_, this);
 };
 goog.inherits(wtf.app.MainDisplay, wtf.ui.Control);
 
@@ -182,11 +190,11 @@ wtf.app.MainDisplay.prototype.disposeInternal = function() {
 
 
 /**
- * @override
+ * Test function.
  */
-wtf.app.MainDisplay.prototype.saveOptions_ = function() {
-  this.options_.save();
-};
+// wtf.app.MainDisplay.prototype.testFunction_ = function() {
+//   goog.global.console.log('test, visualizer added!');
+// };
 
 
 /**
@@ -430,6 +438,10 @@ wtf.app.MainDisplay.prototype.showSettings_ = function() {
           ]
         }
       ]
+    },
+    {
+      'title': '???',
+      'sections': []
     },
     {
       'title': 'WebGL',
