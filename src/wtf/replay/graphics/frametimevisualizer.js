@@ -13,6 +13,7 @@
 
 goog.provide('wtf.replay.graphics.FrameTimeVisualizer');
 
+goog.require('goog.events');
 goog.require('wtf');
 goog.require('wtf.replay.graphics.Playback');
 goog.require('wtf.replay.graphics.Visualizer');
@@ -87,6 +88,18 @@ goog.inherits(wtf.replay.graphics.FrameTimeVisualizer,
 
 
 /**
+ * Events related to this Visualizer.
+ * @enum {string}
+ */
+wtf.replay.graphics.FrameTimeVisualizer.EventType = {
+  /**
+   * Frame times changed.
+   */
+  FRAMES_UPDATED: goog.events.getUniqueId('frames_updated')
+};
+
+
+/**
  * Adds mutators using registerMutator.
  * @protected
  * @override
@@ -125,6 +138,9 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.recordTimes_ = function() {
         var duration = this.endTimes_[this.latestStepIndex_] - startTime;
 
         this.durations_[this.latestStepIndex_] = duration;
+
+        this.emitEvent(
+            wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED);
 
         // var step = this.playback.getCurrentStep();
         // if (step) {

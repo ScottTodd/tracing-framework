@@ -19,8 +19,8 @@ goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.soy');
 goog.require('goog.string');
-goog.require('wtf.replay.graphics.ui.graphicsRangeSeeker');
 goog.require('wtf.replay.graphics.ui.FrameTimePainter');
+goog.require('wtf.replay.graphics.ui.graphicsRangeSeeker');
 goog.require('wtf.ui.Painter');
 goog.require('wtf.ui.ResizableControl');
 
@@ -33,11 +33,13 @@ goog.require('wtf.ui.ResizableControl');
  * @param {number} max The largest value for the range.
  * @param {!Element} parentElement The parent element.
  * @param {goog.dom.DomHelper=} opt_domHelper The DOM Helper.
+ * @param {wtf.replay.graphics.FrameTimeVisualizer=} opt_frameTimeVis The
+ *     frame time visualizer that collects replay time data.
  * @constructor
  * @extends {wtf.ui.ResizableControl}
  */
 wtf.replay.graphics.ui.RangeSeeker =
-    function(min, max, parentElement, opt_domHelper) {
+    function(min, max, parentElement, opt_domHelper, opt_frameTimeVis) {
 
   goog.base(this,
       wtf.ui.ResizableControl.Orientation.HORIZONTAL,
@@ -81,6 +83,13 @@ wtf.replay.graphics.ui.RangeSeeker =
   this.setValue(min);
 
   /**
+   * The frame time visualizer.
+   * @type {?wtf.replay.graphics.FrameTimeVisualizer}
+   * @private
+   */
+  this.frameTimeVisualizer_ = opt_frameTimeVis || null;
+
+  /**
    * Range seeker canvas.
    * @type {!HTMLCanvasElement}
    * @private
@@ -88,15 +97,16 @@ wtf.replay.graphics.ui.RangeSeeker =
   this.seekerCanvas_ = /** @type {!HTMLCanvasElement} */ (
       this.getChildElement(goog.getCssName('canvas')));
 
-  var paintContext = new wtf.ui.Painter(this.seekerCanvas_);
-  this.setPaintContext(paintContext);
+  // TODO(scotttodd): resize canvas to match given width?
 
-  var frameTimePainter = new wtf.replay.graphics.ui.FrameTimePainter(
-      this.seekerCanvas_);
+  if (this.frameTimeVisualizer_) {
+    var paintContext = new wtf.ui.Painter(this.seekerCanvas_);
+    this.setPaintContext(paintContext);
 
-  // TODO(scotttodd): hook this up to an event, should update when switching
-  //   from the tracks panel to this one, etc.
-  frameTimePainter.requestRepaint();
+    var frameTimePainter = new wtf.replay.graphics.ui.FrameTimePainter(
+        this.seekerCanvas_, this.min_, this.max_, this.frameTimeVisualizer_);
+    paintContext.addChildPainter(frameTimePainter);
+  }
 
   /**
    * Whether the range seeker is enabled.
