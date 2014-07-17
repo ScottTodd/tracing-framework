@@ -20,6 +20,7 @@ goog.require('goog.events.EventType');
 goog.require('goog.soy');
 goog.require('goog.string');
 goog.require('wtf.replay.graphics.ui.graphicsRangeSeeker');
+goog.require('wtf.replay.graphics.ui.FrameTimePainter');
 goog.require('wtf.ui.Painter');
 goog.require('wtf.ui.ResizableControl');
 
@@ -89,6 +90,13 @@ wtf.replay.graphics.ui.RangeSeeker =
 
   var paintContext = new wtf.ui.Painter(this.seekerCanvas_);
   this.setPaintContext(paintContext);
+
+  var frameTimePainter = new wtf.replay.graphics.ui.FrameTimePainter(
+      this.seekerCanvas_);
+
+  // TODO(scotttodd): hook this up to an event, should update when switching
+  //   from the tracks panel to this one, etc.
+  frameTimePainter.requestRepaint();
 
   /**
    * Whether the range seeker is enabled.
