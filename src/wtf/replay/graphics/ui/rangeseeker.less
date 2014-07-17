@@ -11,24 +11,35 @@
  * @author chizeng@google.com (Chi Zeng)
  */
 
-.graphicsReplayRangeSeekerDisplayer {
-  display: inline-block;
-  margin: -14px 0 0 10px;
-  width: 5%;
+.graphicsReplayRangeSeeker {
 
-  & .kTextField {
-    margin: -15px 0 0 0;
-    width: 50%;
-    vertical-align: middle;
+  & .canvas {
+    cursor: crosshair;
+    position: fixed;
+    z-index: -1; // Avoid doing this?
   }
-}
 
-.graphicsReplayRangeSeekerSlider {
-  display: inline-block;
-  margin: 5px 0 0 10px;
-  width: 90%;
+  & .graphicsReplayRangeSeekerDisplayer {
+    display: inline-block;
+    margin: -14px 0 0 10px;
+    width: 5%;
 
-  & input {
-    width: 100%;
+    & .kTextField {
+      margin: -15px 0 0 0;
+      width: 50%;
+      vertical-align: middle;
+    }
   }
+
+  & .graphicsReplayRangeSeekerSlider {
+    display: inline-block;
+    margin: 5px 0 0 10px;
+    width: 90%;
+
+    & input {
+      width: 100%;
+    }
+  }
+
+  & .rangeSeekerSplitter {}
 }

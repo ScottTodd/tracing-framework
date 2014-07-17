@@ -20,7 +20,8 @@ goog.require('goog.events.EventType');
 goog.require('goog.soy');
 goog.require('goog.string');
 goog.require('wtf.replay.graphics.ui.graphicsRangeSeeker');
-goog.require('wtf.ui.Control');
+goog.require('wtf.ui.Painter');
+goog.require('wtf.ui.ResizableControl');
 
 
 
@@ -32,11 +33,17 @@ goog.require('wtf.ui.Control');
  * @param {!Element} parentElement The parent element.
  * @param {goog.dom.DomHelper=} opt_domHelper The DOM Helper.
  * @constructor
- * @extends {wtf.ui.Control}
+ * @extends {wtf.ui.ResizableControl}
  */
 wtf.replay.graphics.ui.RangeSeeker =
     function(min, max, parentElement, opt_domHelper) {
-  goog.base(this, parentElement, opt_domHelper);
+
+  goog.base(this,
+      wtf.ui.ResizableControl.Orientation.HORIZONTAL,
+      goog.getCssName('rangeSeekerSplitter'),
+      parentElement, opt_domHelper);
+  this.setSplitterLimits(wtf.replay.graphics.ui.RangeSeeker.MIN_HEIGHT,
+      undefined);
 
   /**
    * The minimum of the range.
@@ -73,6 +80,17 @@ wtf.replay.graphics.ui.RangeSeeker =
   this.setValue(min);
 
   /**
+   * Range seeker canvas.
+   * @type {!HTMLCanvasElement}
+   * @private
+   */
+  this.seekerCanvas_ = /** @type {!HTMLCanvasElement} */ (
+      this.getChildElement(goog.getCssName('canvas')));
+
+  var paintContext = new wtf.ui.Painter(this.seekerCanvas_);
+  this.setPaintContext(paintContext);
+
+  /**
    * Whether the range seeker is enabled.
    * @type {boolean}
    * @private
@@ -80,7 +98,7 @@ wtf.replay.graphics.ui.RangeSeeker =
   this.enabled_ = false;
   this.setEnabled(false);
 };
-goog.inherits(wtf.replay.graphics.ui.RangeSeeker, wtf.ui.Control);
+goog.inherits(wtf.replay.graphics.ui.RangeSeeker, wtf.ui.ResizableControl);
 
 
 /**
@@ -94,6 +112,14 @@ wtf.replay.graphics.ui.RangeSeeker.EventType = {
    */
   VALUE_CHANGED: goog.events.getUniqueId('value_changed')
 };
+
+
+/**
+ * Minimum height of the range seeker, in pixels.
+ * @type {number}
+ * @const
+ */
+wtf.replay.graphics.ui.RangeSeeker.MIN_HEIGHT = 28;
 
 
 /**
