@@ -126,6 +126,21 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.recordTimes_ = function() {
 
         this.durations_[this.latestStepIndex_] = duration;
 
+        // var step = this.playback.getCurrentStep();
+        // if (step) {
+        //   var frame = step.getFrame();
+        //   if (frame) {
+        //     // goog.global.console.log('frame.getDuration(): '
+        //     //     + frame.getDuration());
+        //     // frame.time_ = 0.1;
+        //     // frame.time_ = frame.endTime_ - 200.0;
+        //     // frame.endTime_ = frame.time_ + 10.0;
+        //     // goog.global.console.log('frame.endTime_: ' + frame.endTime_);
+        //     // frame.endTime_ = frame.time_;
+        //     // frame.endTime_ = 0.1;
+        //     frame.endTime_ = frame.endTime_ - 1000;
+        //   }
+        // }
 
         this.currentTotalTime_ += duration;
         this.numTimedFrames_++;

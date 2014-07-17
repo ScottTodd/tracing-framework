@@ -107,6 +107,7 @@ wtf.app.nav.TimelinePainter.prototype.repaintInternal = function(
       // Create a gap if the time is too large.
       var gapSize = endTime - pixelStart;
       pixelStart = endTime - (endTime % pixelStep);
+      // goog.global.console.log(bounds.top + fy);
       if (gapSize > 33) {
         var xr = wtf.math.remap(endTime, timeLeft, timeRight, 0, bounds.width);
         ctx.lineTo(bounds.left + xr, bounds.top + fy);
@@ -115,9 +116,11 @@ wtf.app.nav.TimelinePainter.prototype.repaintInternal = function(
         ctx.fillStyle = '#FF0000';
         ctx.fillRect(bounds.left + x, bounds.top, 1, bounds.height);
         ctx.fillStyle = '#444444';
+        // ctx.fillStyle = '#00aa44';
         ctx.beginPath();
         ctx.moveTo(bounds.left + wtf.math.remap(pixelStart,
             timeLeft, timeRight, 0, bounds.width), bounds.top + bounds.height);
+        // goog.global.console.log(bounds.top + bounds.height);
       }
       pixelAccumulator = 0;
     }
@@ -128,6 +131,7 @@ wtf.app.nav.TimelinePainter.prototype.repaintInternal = function(
 
   // Draw frame time limits.
   ctx.fillStyle = '#DD4B39';
+  // ctx.fillStyle = '#FFFF00';
   ctx.fillRect(
       bounds.left, bounds.top + Math.floor(bounds.height - 17 * timeScale),
       bounds.width, 1);
