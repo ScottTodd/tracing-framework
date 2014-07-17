@@ -94,25 +94,34 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
 
   var frames = this.frameTimeVisualizer_.getFrames();
 
-  var timeScale = 1 / wtf.math.remap(45, 0, bounds.height, 0, 1);
-  var latestFrameNumber = 0;
+  // The y-axis is frame duration.
+  var yScale = 1 / wtf.math.remap(45, 0, bounds.height, 0, 1);
+  var frameWidth = bounds.width / (this.max_ - this.min_);
+
+  // The x-axis is frame number.
 
   ctx.beginPath();
-  ctx.moveTo(bounds.left, bounds.top + bounds.height);
-
   for (var i = 0; i < frames.length; ++i) {
     var currentFrameNumber = i;
     var frame = frames[currentFrameNumber];
     if (frame) {
-      var x = wtf.math.remap(currentFrameNumber, this.min_, this.max_,
-          0, bounds.width);
-      var y = Math.max(bounds.height - frame.getDuration() * timeScale, 0);
+      var leftX = wtf.math.remap(currentFrameNumber - 0.5,
+          this.min_, this.max_, 0, bounds.width);
+      var topY = Math.max(bounds.height - frame.getDuration() * yScale, 0);
 
-      ctx.strokeStyle = '#444444';
-      ctx.lineTo(x, y);
-      ctx.stroke();
-
-      latestFrameNumber = currentFrameNumber;
+      // Draw a bar for this frame.
+      var duration = frame.getDuration();
+      // TODO(scotttodd): More colors? Using the same colors from overdraw.
+      if (duration < 17) {
+        ctx.fillStyle = '#4C993F';
+      } else if (duration < 33) {
+        ctx.fillStyle = '#ED9128';
+      } else if (duration < 50) {
+        ctx.fillStyle = '#F23838';
+      } else {
+        ctx.fillStyle = '#991E1E';
+      }
+      ctx.fillRect(leftX, topY, frameWidth, frame.getDuration() * yScale);
     }
   }
 };
