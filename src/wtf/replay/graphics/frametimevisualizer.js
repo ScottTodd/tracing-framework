@@ -15,6 +15,7 @@ goog.provide('wtf.replay.graphics.FrameTimeVisualizer');
 
 goog.require('goog.events');
 goog.require('wtf');
+goog.require('wtf.replay.graphics.Frame');
 goog.require('wtf.replay.graphics.Playback');
 goog.require('wtf.replay.graphics.Visualizer');
 
@@ -38,25 +39,11 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
   this.latestStepIndex_ = -1;
 
   /**
-   * Array of the latest recorded start times for frames.
-   * @type {!Array.<number>}
+   * Array of frames recorded.
+   * @type {!Array.<!wtf.replay.graphics.Frame>}
    * @private
    */
-  this.startTimes_ = [];
-
-  /**
-   * Array of the latest recorded end times for frames.
-   * @type {!Array.<number>}
-   * @private
-   */
-  this.endTimes_ = [];
-
-  /**
-   * Array of the latest recorded durations for frames.
-   * @type {!Array.<number>}
-   * @private
-   */
-  this.durations_ = [];
+  this.frames_ = [];
 
   /**
    * The current total time between all timed frames.
@@ -119,58 +106,58 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.setupMutators = function() {
 
 
 /**
+ * Gets the time the frame ended at.
+ * @return {!Array.<!wtf.replay.graphics.Frame>} The recorded frames.
+ */
+wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrames = function() {
+  return this.frames_;
+};
+
+
+/**
  * Records frame times. Call when the step changes.
  * @private
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.recordTimes_ = function() {
   var currentStepIndex = this.playback.getCurrentStepIndex();
 
-  if (currentStepIndex != this.latestStepIndex_) {
-    if (this.latestStepIndex_ > 0 && this.playback.isPlaying()) {
-      for (var contextHandle in this.contexts_) {
-        this.contexts_[contextHandle].finish();
-      }
-      this.endTimes_[this.latestStepIndex_] = wtf.now();
-
-      var startTime = this.startTimes_[this.latestStepIndex_];
-
-      if (startTime) {
-        var duration = this.endTimes_[this.latestStepIndex_] - startTime;
-
-        this.durations_[this.latestStepIndex_] = duration;
-
-        this.emitEvent(
-            wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED);
-
-        // var step = this.playback.getCurrentStep();
-        // if (step) {
-        //   var frame = step.getFrame();
-        //   if (frame) {
-        //     // goog.global.console.log('frame.getDuration(): '
-        //     //     + frame.getDuration());
-        //     // frame.time_ = 0.1;
-        //     // frame.time_ = frame.endTime_ - 200.0;
-        //     // frame.endTime_ = frame.time_ + 10.0;
-        //     // goog.global.console.log('frame.endTime_: ' + frame.endTime_);
-        //     // frame.endTime_ = frame.time_;
-        //     // frame.endTime_ = 0.1;
-        //     frame.endTime_ = frame.endTime_ - 1000;
-        //   }
-        // }
-
-        this.currentTotalTime_ += duration;
-        this.numTimedFrames_++;
-
-        var averageTime = this.currentTotalTime_ / this.numTimedFrames_;
-        goog.global.console.log('averageTime: ' + averageTime.toFixed(3) +
-            ', duration: ' + duration.toFixed(3));
-      }
-
-      this.startTimes_[currentStepIndex] = wtf.now();
+  if (this.latestStepIndex_ > 0 && this.playback.isPlaying()) {
+    // Finish rendering in all contexts.
+    for (var contextHandle in this.contexts_) {
+      this.contexts_[contextHandle].finish();
     }
 
-    this.latestStepIndex_ = currentStepIndex;
+    // Record the end time for the previous step.
+    var previousFrame = this.frames_[this.latestStepIndex_];
+    if (previousFrame) {
+      previousFrame.setEndTime(wtf.now());
+    }
+
+    // Record the start time for the new step.
+    if (!this.frames_[currentStepIndex]) {
+      this.frames_[currentStepIndex] = new wtf.replay.graphics.Frame(
+          currentStepIndex);
+    }
+    var currentFrame = this.frames_[currentStepIndex];
+    currentFrame.setStartTime(wtf.now());
+
+    this.emitEvent(
+        wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED);
+
+    // Debug stats collection and display.
+    if (previousFrame) {
+      var duration = previousFrame.getDuration();
+      this.currentTotalTime_ += duration;
+      this.numTimedFrames_++;
+
+      var averageTime = this.currentTotalTime_ / this.numTimedFrames_;
+      goog.global.console.log('averageTime: ' + averageTime.toFixed(3) +
+          ', duration: ' + duration.toFixed(3));
+    }
+
   }
+
+  this.latestStepIndex_ = currentStepIndex;
 };
 
 
