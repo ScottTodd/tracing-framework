@@ -63,8 +63,7 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
 
   playback.addListener(wtf.replay.graphics.Playback.EventType.PLAY_STOPPED,
       function() {
-        var previousFrame = this.frames_[this.latestStepIndex_];
-        previousFrame.cancelTiming();
+        this.getPreviousFrame_().cancelTiming();
       }, this);
 
   /**
@@ -111,7 +110,7 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.setupMutators = function() {
 
 
 /**
- * Gets the time the frame ended at.
+ * Gets all frames.
  * @return {!Array.<!wtf.replay.graphics.Frame>} The recorded frames.
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrames = function() {
@@ -120,49 +119,79 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrames = function() {
 
 
 /**
+ * Gets the current frame, creating a new frame if needed.
+ * @return {!wtf.replay.graphics.Frame} The current frame.
+ * @private
+ */
+wtf.replay.graphics.FrameTimeVisualizer.prototype.getCurrentFrame_ =
+    function() {
+  var currentStepIndex = this.playback.getCurrentStepIndex();
+  if (!this.frames_[currentStepIndex]) {
+    this.frames_[currentStepIndex] = new wtf.replay.graphics.Frame(
+        currentStepIndex);
+  }
+  return this.frames_[currentStepIndex];
+};
+
+
+/**
+ * Gets the previous frame.
+ * @return {!wtf.replay.graphics.Frame} The previous frame.
+ * @private
+ */
+wtf.replay.graphics.FrameTimeVisualizer.prototype.getPreviousFrame_ =
+    function() {
+  return this.frames_[this.latestStepIndex_];
+};
+
+
+/**
+ * Updates the latest step index to match playback's current step index.
+ * @private
+ */
+wtf.replay.graphics.FrameTimeVisualizer.prototype.updateStepIndex_ =
+    function() {
+  var currentStepIndex = this.playback.getCurrentStepIndex();
+  this.latestStepIndex_ = currentStepIndex;
+};
+
+
+/**
  * Records frame times. Call when the step changes.
  * @private
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.recordTimes_ = function() {
-  var currentStepIndex = this.playback.getCurrentStepIndex();
-
-  if (this.latestStepIndex_ > 0 && this.playback.isPlaying()) {
+  if (this.playback.isPlaying()) {
     // Finish rendering in all contexts.
     for (var contextHandle in this.contexts_) {
       this.contexts_[contextHandle].finish();
     }
 
     // Record the end time for the previous step.
-    var previousFrame = this.frames_[this.latestStepIndex_];
+    var previousFrame = this.getPreviousFrame_();
     if (previousFrame) {
       previousFrame.stopTiming();
     }
 
-    // Record the start time for the new step.
-    if (!this.frames_[currentStepIndex]) {
-      this.frames_[currentStepIndex] = new wtf.replay.graphics.Frame(
-          currentStepIndex);
-    }
-    var currentFrame = this.frames_[currentStepIndex];
+    var currentFrame = this.getCurrentFrame_();
     currentFrame.startTiming();
 
     this.emitEvent(
         wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED);
 
     // Debug stats collection and display.
-    if (previousFrame) {
-      var duration = previousFrame.getAverageDuration();
-      this.currentTotalTime_ += duration;
-      this.numTimedFrames_++;
+    // if (previousFrame) {
+    //   var duration = previousFrame.getAverageDuration();
+    //   this.currentTotalTime_ += duration;
+    //   this.numTimedFrames_++;
 
-      var averageTime = this.currentTotalTime_ / this.numTimedFrames_;
-      goog.global.console.log('averageTime: ' + averageTime.toFixed(3) +
-          ', duration: ' + duration.toFixed(3));
-    }
-
+    //   var averageTime = this.currentTotalTime_ / this.numTimedFrames_;
+    //   goog.global.console.log('averageTime: ' + averageTime.toFixed(3) +
+    //       ', duration: ' + duration.toFixed(3));
+    // }
   }
 
-  this.latestStepIndex_ = currentStepIndex;
+  this.updateStepIndex_();
 };
 
 

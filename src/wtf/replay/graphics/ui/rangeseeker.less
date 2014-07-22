@@ -12,10 +12,22 @@
  */
 
 .graphicsReplayRangeSeeker {
+  margin-right: 10px;
 
   & .canvas {
     cursor: crosshair;
-    position: fixed;
+    margin-top: -4px;
+  }
+
+  & .canvasOuter {
+    display: inline-block;
+    position: relative;
+    width: 90%;
+    height: 32px;
+    overflow: hidden;
+    margin: -2px 1px 1px 1px;
+    padding: 1px;
+    border: 1px solid #ebebeb;
   }
 
   & .graphicsReplayRangeSeekerDisplayer {
@@ -25,7 +37,7 @@
 
     & .kTextField {
       margin: -15px 0 0 0;
-      width: 50%;
+      width: 80%;
       vertical-align: middle;
     }
   }

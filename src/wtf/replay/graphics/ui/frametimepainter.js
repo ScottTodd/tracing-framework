@@ -57,27 +57,10 @@ wtf.replay.graphics.ui.FrameTimePainter = function FrameTimePainter(canvas,
   this.frameTimeVisualizer_.addListener(
       wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED,
       function() {
-        goog.global.console.log('range seeker sees an update!');
         this.requestRepaint();
       }, this);
 };
 goog.inherits(wtf.replay.graphics.ui.FrameTimePainter, wtf.ui.Painter);
-
-
-/**
- * @override
- */
-wtf.replay.graphics.ui.FrameTimePainter.prototype.layoutInternal = function(
-    availableBounds) {
-  var newBounds = availableBounds.clone();
-  // TODO(scotttodd): Set height to 0 if no frame times recorded.
-  // if (this.frameList_.getCount()) {
-  //   newBounds.height = 45;
-  // } else {
-  //   newBounds.height = 0;
-  // }
-  return newBounds;
-};
 
 
 /**
@@ -124,4 +107,69 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
       ctx.fillRect(leftX, topY, frameWidth, duration * yScale);
     }
   }
+
+  // Draw label on the left.
+  // this.drawLabel('frames');
 };
+
+
+/**
+ * @override
+ */
+wtf.replay.graphics.ui.FrameTimePainter.prototype.getInfoStringInternal =
+    function(x, y, bounds) {
+  goog.global.console.log('getInfoStringInternal');
+  return;
+
+  // var hit = this.hitTest_(x, y, bounds);
+  // if (!hit) {
+  //   return undefined;
+  // }
+
+
+  // var lines = [
+  // ];
+  // if (goog.isArray(hit)) {
+  //   var frameLeft = hit[0];
+  //   var frameRight = hit[1];
+  //   var timeLeft = frameLeft ?
+  //       frameLeft.getEndTime() : this.db_.getFirstEventTime();
+  //   var timeRight = frameRight ?
+  //       frameRight.getTime() : this.db_.getLastEventTime();
+  //   var duration = timeRight - timeLeft;
+  //   lines.push(
+  //       '(' + wtf.util.formatTime(duration) + ': between ' +
+  //       (frameLeft ? 'frame #' + frameLeft.getNumber() : 'start') +
+  //       ' and ' +
+  //       (frameRight ? '#' + frameRight.getNumber() : 'end') +
+  //       ')');
+  // } else {
+  //   var frame = hit;
+  //   lines.push(
+  //       wtf.util.formatTime(frame.getDuration()) + ': frame #' +
+  //           frame.getNumber());
+  // }
+  // return lines.join('\n');
+};
+
+
+/**
+ * Finds the frame at the given point.
+ * @param {number} x X coordinate, relative to canvas.
+ * @param {number} y Y coordinate, relative to canvas.
+ * @param {!goog.math.Rect} bounds Draw bounds.
+ * @return {wtf.db.Frame|Array.<wtf.db.Frame>} Frame or an array
+ *     containing the two frames on either side of the time.
+ * @private
+ */
+// wtf.replay.graphics.ui.FrameTimePainter.prototype.hitTest_ = function(
+//     x, y, bounds) {
+//   var time = wtf.math.remap(x,
+//       bounds.left, bounds.left + bounds.width,
+//       this.timeLeft, this.timeRight);
+//   var frame = this.frameList_.getFrameAtTime(time);
+//   if (frame) {
+//     return frame;
+//   }
+//   return this.frameList_.getIntraFrameAtTime(time);
+// };

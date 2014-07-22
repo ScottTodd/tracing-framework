@@ -21,8 +21,9 @@ goog.require('goog.soy');
 goog.require('goog.string');
 goog.require('wtf.replay.graphics.ui.FrameTimePainter');
 goog.require('wtf.replay.graphics.ui.graphicsRangeSeeker');
+goog.require('wtf.timing');
+goog.require('wtf.ui.Control');
 goog.require('wtf.ui.Painter');
-goog.require('wtf.ui.ResizableControl');
 
 
 
@@ -32,21 +33,15 @@ goog.require('wtf.ui.ResizableControl');
  * @param {number} min The smallest value for the range.
  * @param {number} max The largest value for the range.
  * @param {!Element} parentElement The parent element.
- * @param {goog.dom.DomHelper=} opt_domHelper The DOM Helper.
  * @param {wtf.replay.graphics.FrameTimeVisualizer=} opt_frameTimeVis The
  *     frame time visualizer that collects replay time data.
  * @constructor
- * @extends {wtf.ui.ResizableControl}
+ * @extends {wtf.ui.Control}
  */
 wtf.replay.graphics.ui.RangeSeeker =
-    function(min, max, parentElement, opt_domHelper, opt_frameTimeVis) {
-
-  goog.base(this,
-      wtf.ui.ResizableControl.Orientation.HORIZONTAL,
-      goog.getCssName('rangeSeekerSplitter'),
-      parentElement, opt_domHelper);
-  this.setSplitterLimits(wtf.replay.graphics.ui.RangeSeeker.MIN_HEIGHT,
-      undefined);
+    function(min, max, parentElement, opt_frameTimeVis) {
+  var dom = this.getDom();
+  goog.base(this, parentElement, dom);
 
   /**
    * The minimum of the range.
@@ -67,20 +62,20 @@ wtf.replay.graphics.ui.RangeSeeker =
    * @type {!Element}
    * @private
    */
-  this.rangeElement_ = this.createSlider_();
-  this.getChildElement(goog.getCssName('graphicsReplayRangeSeekerSlider'))
-      .appendChild(this.rangeElement_);
+  // this.rangeElement_ = this.createSlider_();
+  // this.getChildElement(goog.getCssName('graphicsReplayRangeSeekerSlider'))
+  //     .appendChild(this.rangeElement_);
 
   /**
    * A widget that displays the value.
    * @type {!Element}
    * @private
    */
-  this.valueDisplayer_ = this.createValueDisplayer_(this.rangeElement_);
+  this.valueDisplayer_ = this.createValueDisplayer_(parentElement);
   this.getChildElement(goog.getCssName('graphicsReplayRangeSeekerDisplayer'))
       .appendChild(this.valueDisplayer_);
 
-  this.setValue(min);
+  // this.setValue(min);
 
   /**
    * The frame time visualizer.
@@ -96,8 +91,6 @@ wtf.replay.graphics.ui.RangeSeeker =
    */
   this.seekerCanvas_ = /** @type {!HTMLCanvasElement} */ (
       this.getChildElement(goog.getCssName('canvas')));
-
-  // TODO(scotttodd): resize canvas to match given width?
 
   if (this.frameTimeVisualizer_) {
     var paintContext = new wtf.ui.Painter(this.seekerCanvas_);
@@ -115,8 +108,11 @@ wtf.replay.graphics.ui.RangeSeeker =
    */
   this.enabled_ = false;
   this.setEnabled(false);
+
+  wtf.timing.setImmediate(this.layout, this);
+  this.requestRepaint();
 };
-goog.inherits(wtf.replay.graphics.ui.RangeSeeker, wtf.ui.ResizableControl);
+goog.inherits(wtf.replay.graphics.ui.RangeSeeker, wtf.ui.Control);
 
 
 /**
@@ -130,14 +126,6 @@ wtf.replay.graphics.ui.RangeSeeker.EventType = {
    */
   VALUE_CHANGED: goog.events.getUniqueId('value_changed')
 };
-
-
-/**
- * Minimum height of the range seeker, in pixels.
- * @type {number}
- * @const
- */
-wtf.replay.graphics.ui.RangeSeeker.MIN_HEIGHT = 28;
 
 
 /**
@@ -225,15 +213,15 @@ wtf.replay.graphics.ui.RangeSeeker.prototype.isEnabled = function() {
  * @param {boolean} enabled The true/false enabled state of the range seeker.
  */
 wtf.replay.graphics.ui.RangeSeeker.prototype.setEnabled = function(enabled) {
-  if (enabled) {
-    // Enable.
-    this.rangeElement_.removeAttribute('disabled');
-    this.valueDisplayer_.removeAttribute('disabled');
-  } else {
-    // Disable.
-    this.rangeElement_.disabled = 'disabled';
-    this.valueDisplayer_.disabled = 'disabled';
-  }
+  // if (enabled) {
+  //   // Enable.
+  //   this.rangeElement_.removeAttribute('disabled');
+  //   this.valueDisplayer_.removeAttribute('disabled');
+  // } else {
+  //   // Disable.
+  //   this.rangeElement_.disabled = 'disabled';
+  //   this.valueDisplayer_.disabled = 'disabled';
+  // }
   this.enabled_ = enabled;
 };
 
@@ -253,6 +241,6 @@ wtf.replay.graphics.ui.RangeSeeker.prototype.getValue = function() {
  * @param {number} value The new value.
  */
 wtf.replay.graphics.ui.RangeSeeker.prototype.setValue = function(value) {
-  this.rangeElement_.value = value;
-  this.valueDisplayer_.value = value;
+  // this.rangeElement_.value = value;
+  // this.valueDisplayer_.value = value;
 };
