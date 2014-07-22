@@ -105,12 +105,12 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
     var currentFrameNumber = i;
     var frame = frames[currentFrameNumber];
     if (frame) {
+      var duration = frame.getAverageDuration();
       var leftX = wtf.math.remap(currentFrameNumber - 0.5,
           this.min_, this.max_, 0, bounds.width);
-      var topY = Math.max(bounds.height - frame.getDuration() * yScale, 0);
+      var topY = Math.max(bounds.height - duration * yScale, 0);
 
       // Draw a bar for this frame.
-      var duration = frame.getDuration();
       // TODO(scotttodd): More colors? Using the same colors from overdraw.
       if (duration < 17) {
         ctx.fillStyle = '#4C993F';
@@ -121,7 +121,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
       } else {
         ctx.fillStyle = '#991E1E';
       }
-      ctx.fillRect(leftX, topY, frameWidth, frame.getDuration() * yScale);
+      ctx.fillRect(leftX, topY, frameWidth, duration * yScale);
     }
   }
 };

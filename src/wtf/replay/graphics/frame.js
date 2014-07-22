@@ -13,6 +13,8 @@
 
 goog.provide('wtf.replay.graphics.Frame');
 
+goog.require('wtf');
+
 
 
 /**
@@ -30,18 +32,53 @@ wtf.replay.graphics.Frame = function(number) {
   this.number_ = number;
 
   /**
-   * Start time for the frame.
-   * @type {number}
+   * All recorded start times.
+   * @type {!Array.<number>}
    * @private
    */
-  this.startTime_ = 0;
+  this.startTimes_ = [];
 
   /**
-   * End time for the frame.
+   * All recorded stop times.
+   * @type {!Array.<number>}
+   * @private
+   */
+  this.stopTimes_ = [];
+
+  /**
+   * All recorded durations.
+   * @type {!Array.<number>}
+   * @private
+   */
+  this.durations_ = [];
+
+  /**
+   * Sum of all recorded durations.
    * @type {number}
    * @private
    */
-  this.endTime_ = 0;
+  this.totalDuration_ = 0;
+
+  /**
+   * Whether the current timing is valid.
+   * @type {boolean}
+   * @private
+   */
+  this.valid_ = false;
+
+  /**
+   * Latest start time for this frame.
+   * @type {number}
+   * @private
+   */
+  this.latestStartTime_ = 0;
+
+  /**
+   * Latest stop time for this frame.
+   * @type {number}
+   * @private
+   */
+  this.latestStopTime_ = 0;
 };
 
 
@@ -55,45 +92,47 @@ wtf.replay.graphics.Frame.prototype.getNumber = function() {
 
 
 /**
- * Gets the time the frame started at.
- * @return {number} Start time.
+ * Starts timing for one recording.
  */
-wtf.replay.graphics.Frame.prototype.getStartTime = function() {
-  return this.startTime_;
+wtf.replay.graphics.Frame.prototype.startTiming = function() {
+  this.latestStartTime_ = wtf.now();
+  this.valid_ = true;
 };
 
 
 /**
- * Sets the time the frame started at.
- * @param {number} startTime The new start time.
+ * Stops timing for one recording.
  */
-wtf.replay.graphics.Frame.prototype.setStartTime = function(startTime) {
-  this.startTime_ = startTime;
+wtf.replay.graphics.Frame.prototype.stopTiming = function() {
+  if (!this.valid_) {
+    return;
+  }
+
+  this.latestStopTime_ = wtf.now();
+
+  this.startTimes_.push(this.latestStartTime_);
+  this.stopTimes_.push(this.latestStopTime_);
+
+  var duration = this.latestStopTime_ - this.latestStartTime_;
+  this.durations_.push(duration);
+  this.totalDuration_ += duration;
+
+  this.valid_ = false;
 };
 
 
 /**
- * Gets the time the frame ended at.
- * @return {number} End time.
+ * Cancels timing for one recording.
  */
-wtf.replay.graphics.Frame.prototype.getEndTime = function() {
-  return this.endTime_;
+wtf.replay.graphics.Frame.prototype.cancelTiming = function() {
+  this.valid_ = false;
 };
 
 
 /**
- * Sets the time the frame ended at.
- * @param {number} endTime The new end time.
+ * Gets the average duration of the frame.
+ * @return {number} Average frame duration in milliseconds.
  */
-wtf.replay.graphics.Frame.prototype.setEndTime = function(endTime) {
-  this.endTime_ = endTime;
-};
-
-
-/**
- * Gets the duration of the frame.
- * @return {number} Frame duration.
- */
-wtf.replay.graphics.Frame.prototype.getDuration = function() {
-  return this.endTime_ - this.startTime_;
+wtf.replay.graphics.Frame.prototype.getAverageDuration = function() {
+  return this.totalDuration_ / this.durations_.length;
 };

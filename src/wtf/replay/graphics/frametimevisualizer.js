@@ -14,7 +14,6 @@
 goog.provide('wtf.replay.graphics.FrameTimeVisualizer');
 
 goog.require('goog.events');
-goog.require('wtf');
 goog.require('wtf.replay.graphics.Frame');
 goog.require('wtf.replay.graphics.Playback');
 goog.require('wtf.replay.graphics.Visualizer');
@@ -61,6 +60,12 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
 
   playback.addListener(wtf.replay.graphics.Playback.EventType.STEP_CHANGED,
       this.recordTimes_, this);
+
+  playback.addListener(wtf.replay.graphics.Playback.EventType.PLAY_STOPPED,
+      function() {
+        var previousFrame = this.frames_[this.latestStepIndex_];
+        previousFrame.cancelTiming();
+      }, this);
 
   /**
    * A mapping of handles to contexts.
@@ -130,7 +135,7 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.recordTimes_ = function() {
     // Record the end time for the previous step.
     var previousFrame = this.frames_[this.latestStepIndex_];
     if (previousFrame) {
-      previousFrame.setEndTime(wtf.now());
+      previousFrame.stopTiming();
     }
 
     // Record the start time for the new step.
@@ -139,14 +144,14 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.recordTimes_ = function() {
           currentStepIndex);
     }
     var currentFrame = this.frames_[currentStepIndex];
-    currentFrame.setStartTime(wtf.now());
+    currentFrame.startTiming();
 
     this.emitEvent(
         wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED);
 
     // Debug stats collection and display.
     if (previousFrame) {
-      var duration = previousFrame.getDuration();
+      var duration = previousFrame.getAverageDuration();
       this.currentTotalTime_ += duration;
       this.numTimedFrames_++;
 
