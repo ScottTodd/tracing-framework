@@ -44,20 +44,6 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
    */
   this.frames_ = [];
 
-  /**
-   * The current total time between all timed frames.
-   * @type {number}
-   * @private
-   */
-  this.currentTotalTime_ = 0;
-
-  /**
-   * The current number of timed frames.
-   * @type {number}
-   * @private
-   */
-  this.numTimedFrames_ = 0;
-
   playback.addListener(wtf.replay.graphics.Playback.EventType.STEP_CHANGED,
       this.recordTimes_, this);
 
@@ -188,17 +174,6 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.recordTimes_ = function() {
 
     this.emitEvent(
         wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED);
-
-    // Debug stats collection and display.
-    // if (previousFrame) {
-    //   var duration = previousFrame.getAverageDuration();
-    //   this.currentTotalTime_ += duration;
-    //   this.numTimedFrames_++;
-
-    //   var averageTime = this.currentTotalTime_ / this.numTimedFrames_;
-    //   goog.global.console.log('averageTime: ' + averageTime.toFixed(3) +
-    //       ', duration: ' + duration.toFixed(3));
-    // }
   }
 
   this.updateStepIndex_();

@@ -25,7 +25,7 @@ goog.require('wtf.ui.Painter');
  * @param {!HTMLCanvasElement} canvas Canvas element.
  * @param {number} min The smallest frame number.
  * @param {number} max The largest frame number.
- * @param {!wtf.replay.graphics.FrameTimeVisualizer=} opt_visualizer Frame time
+ * @param {wtf.replay.graphics.FrameTimeVisualizer=} opt_visualizer Frame time
  *     visualizer that collects frame time data.
  * @constructor
  * @extends {wtf.ui.Painter}
@@ -176,11 +176,11 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
   var frameWidth = bounds.width / (this.max_ - this.min_);
 
   var colors = wtf.replay.graphics.ui.FrameTimePainter.COLORS_;
-  var leftX;
+  var leftX, topY, duration;
 
   var hoverIndex = 0;
   if (this.hoverX_) {
-    var hoverIndex = this.hitTest_(this.hoverX_, this.hoverY_, bounds);
+    hoverIndex = this.hitTest_(this.hoverX_, this.hoverY_, bounds);
   }
 
   // Draw background bars in alternating shades of grey.
@@ -203,14 +203,6 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
   ctx.fillRect(bounds.left, bounds.height - 17 * yScale, bounds.width, 1);
   ctx.fillRect(bounds.left, bounds.height - 33 * yScale, bounds.width, 1);
 
-  // Draw the hover line.
-  // if (this.hoverX_) {
-  //   ctx.fillStyle = '#000000';
-  //   ctx.fillRect(
-  //       bounds.left + this.hoverX_, bounds.top,
-  //       1, this.getScaledCanvasHeight() - bounds.top);
-  // }
-
   // Draw the frame times.
   if (this.frameTimeVisualizer_) {
     var frames = this.frameTimeVisualizer_.getFrames();
@@ -219,10 +211,10 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
     for (var i = this.min_; i < this.max_; ++i) {
       var frame = frames[i];
       if (frame) {
-        var duration = frame.getAverageDuration();
+        duration = frame.getAverageDuration();
         leftX = wtf.math.remap(i - 0.5, this.min_, this.max_,
             0, bounds.width);
-        var topY = Math.max(bounds.height - duration * yScale, 0);
+        topY = Math.max(bounds.height - duration * yScale, 0);
 
         // Draw a bar for this frame.
         if (duration < 17) {
@@ -241,14 +233,13 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
     // Draw highlight for the frame that is hovered over.
     if (hoverIndex) {
       var hoverFrame = frames[hoverIndex];
-
       if (hoverFrame) {
-        var duration = hoverFrame.getAverageDuration();
+        duration = hoverFrame.getAverageDuration();
         leftX = wtf.math.remap(hoverIndex - 0.5, this.min_, this.max_,
             0, bounds.width);
-        var topY = Math.max(bounds.height - duration * yScale, 0);
+        topY = Math.max(bounds.height - duration * yScale, 0);
 
-        ctx.lineWidth = "3";
+        ctx.lineWidth = 3;
         ctx.strokeStyle = colors.FRAME_HOVER;
         ctx.rect(leftX, topY, frameWidth, duration * yScale);
         ctx.stroke();
@@ -272,7 +263,8 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseMoveInternal =
 /**
  * @override
  */
-wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseOutInternal = function() {
+wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseOutInternal =
+    function() {
   this.hoverX_ = 0;
   this.hoverY_ = 0;
   this.requestRepaint();
