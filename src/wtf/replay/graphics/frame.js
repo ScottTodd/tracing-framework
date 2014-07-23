@@ -136,3 +136,20 @@ wtf.replay.graphics.Frame.prototype.cancelTiming = function() {
 wtf.replay.graphics.Frame.prototype.getAverageDuration = function() {
   return this.totalDuration_ / this.durations_.length;
 };
+
+/**
+ * Gets the tooltip message for this frame.
+ * @return {string} Tooltip message.
+ */
+wtf.replay.graphics.Frame.prototype.getTooltip = function() {
+  var tooltip = '';
+  tooltip += 'Frame #' + this.number_ + '\n';
+  if (this.durations_.length > 0) {
+    tooltip += 'Average time: ' + this.getAverageDuration().toFixed(2) + 'ms\n';
+    tooltip += 'All times:\n'
+    for (var i = 0; i < this.durations_.length; ++i) {
+      tooltip += '  ' + this.durations_[i].toFixed(2) + 'ms\n'
+    }
+  }
+  return tooltip;
+};

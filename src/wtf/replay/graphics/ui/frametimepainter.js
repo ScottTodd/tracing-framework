@@ -134,38 +134,18 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.onClickInternal =
  */
 wtf.replay.graphics.ui.FrameTimePainter.prototype.getInfoStringInternal =
     function(x, y, bounds) {
-  goog.global.console.log('getInfoStringInternal');
-  return;
-
-  // var hit = this.hitTest_(x, y, bounds);
-  // if (!hit) {
-  //   return undefined;
-  // }
+  var frameHit = this.hitTest_(x, y, bounds);
+  if (!frameHit) {
+    return undefined;
+  }
 
 
-  // var lines = [
-  // ];
-  // if (goog.isArray(hit)) {
-  //   var frameLeft = hit[0];
-  //   var frameRight = hit[1];
-  //   var timeLeft = frameLeft ?
-  //       frameLeft.getEndTime() : this.db_.getFirstEventTime();
-  //   var timeRight = frameRight ?
-  //       frameRight.getTime() : this.db_.getLastEventTime();
-  //   var duration = timeRight - timeLeft;
-  //   lines.push(
-  //       '(' + wtf.util.formatTime(duration) + ': between ' +
-  //       (frameLeft ? 'frame #' + frameLeft.getNumber() : 'start') +
-  //       ' and ' +
-  //       (frameRight ? '#' + frameRight.getNumber() : 'end') +
-  //       ')');
-  // } else {
-  //   var frame = hit;
-  //   lines.push(
-  //       wtf.util.formatTime(frame.getDuration()) + ': frame #' +
-  //           frame.getNumber());
-  // }
-  // return lines.join('\n');
+  var frame = this.frameTimeVisualizer_.getFrame(frameHit);
+  if (frame) {
+    return frame.getTooltip();
+  }
+
+  return undefined;
 };
 
 

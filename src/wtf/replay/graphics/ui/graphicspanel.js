@@ -216,7 +216,7 @@ wtf.replay.graphics.ui.GraphicsPanel.prototype.createRangeSeeker_ =
   var slider = new wtf.replay.graphics.ui.RangeSeeker(
       0, playback.getStepCount() - 1,
       this.getChildElement(goog.getCssName('rangeSeeker')),
-      frameTimeVisualizer);
+      this.getDom(), frameTimeVisualizer);
 
   // Enable the slider only after the playback has loaded.
   this.loadDeferred_.addCallback(function() {

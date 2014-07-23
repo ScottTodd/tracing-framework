@@ -19,11 +19,13 @@ goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.soy');
 goog.require('goog.string');
+goog.require('wtf.events');
 goog.require('wtf.replay.graphics.ui.FrameTimePainter');
 goog.require('wtf.replay.graphics.ui.graphicsRangeSeeker');
 goog.require('wtf.timing');
 goog.require('wtf.ui.Control');
 goog.require('wtf.ui.Painter');
+goog.require('wtf.ui.Tooltip');
 
 
 
@@ -33,15 +35,15 @@ goog.require('wtf.ui.Painter');
  * @param {number} min The smallest value for the range.
  * @param {number} max The largest value for the range.
  * @param {!Element} parentElement The parent element.
+ * @param {goog.dom.DomHelper=} opt_domHelper The DOM Helper.
  * @param {wtf.replay.graphics.FrameTimeVisualizer=} opt_frameTimeVis The
  *     frame time visualizer that collects replay time data.
  * @constructor
  * @extends {wtf.ui.Control}
  */
 wtf.replay.graphics.ui.RangeSeeker =
-    function(min, max, parentElement, opt_frameTimeVis) {
-  var dom = this.getDom();
-  goog.base(this, parentElement, dom);
+    function(min, max, parentElement, opt_domHelper, opt_frameTimeVis) {
+  goog.base(this, parentElement, opt_domHelper);
 
   /**
    * The minimum of the range.
@@ -90,6 +92,10 @@ wtf.replay.graphics.ui.RangeSeeker =
    * @private
    */
   this.frameTimeVisualizer_ = opt_frameTimeVis || null;
+
+  var tooltip = new wtf.ui.Tooltip(this.getDom());
+  this.registerDisposable(tooltip);
+  this.setTooltip(tooltip);
 
   /**
    * Range seeker canvas.

@@ -119,6 +119,16 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrames = function() {
 
 
 /**
+ * Gets a specific frame.
+ * @param {number} number The frame number.
+ * @return {wtf.replay.graphics.Frame} The requested frame, if it exists.
+ */
+wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrame = function(number) {
+  return this.frames_[number] || null;
+};
+
+
+/**
  * Gets the current frame, creating a new frame if needed.
  * @return {!wtf.replay.graphics.Frame} The current frame.
  * @private
