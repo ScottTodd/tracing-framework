@@ -116,6 +116,22 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
 /**
  * @override
  */
+wtf.replay.graphics.ui.FrameTimePainter.prototype.onClickInternal =
+    function(x, y, modifiers, bounds) {
+  var frameHit = this.hitTest_(x, y, bounds);
+  if (!frameHit) {
+    return false;
+  }
+
+  goog.global.console.log('clicked on frame #' + frameHit);
+
+  return true;
+};
+
+
+/**
+ * @override
+ */
 wtf.replay.graphics.ui.FrameTimePainter.prototype.getInfoStringInternal =
     function(x, y, bounds) {
   goog.global.console.log('getInfoStringInternal');
@@ -158,18 +174,11 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.getInfoStringInternal =
  * @param {number} x X coordinate, relative to canvas.
  * @param {number} y Y coordinate, relative to canvas.
  * @param {!goog.math.Rect} bounds Draw bounds.
- * @return {wtf.db.Frame|Array.<wtf.db.Frame>} Frame or an array
- *     containing the two frames on either side of the time.
+ * @return {number} Frame number at the given point.
  * @private
  */
-// wtf.replay.graphics.ui.FrameTimePainter.prototype.hitTest_ = function(
-//     x, y, bounds) {
-//   var time = wtf.math.remap(x,
-//       bounds.left, bounds.left + bounds.width,
-//       this.timeLeft, this.timeRight);
-//   var frame = this.frameList_.getFrameAtTime(time);
-//   if (frame) {
-//     return frame;
-//   }
-//   return this.frameList_.getIntraFrameAtTime(time);
-// };
+wtf.replay.graphics.ui.FrameTimePainter.prototype.hitTest_ = function(
+    x, y, bounds) {
+  return Math.round(wtf.math.remap(x, bounds.left, bounds.left + bounds.width,
+      this.min_, this.max_));
+};

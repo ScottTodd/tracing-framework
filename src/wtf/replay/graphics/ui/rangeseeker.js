@@ -58,6 +58,13 @@ wtf.replay.graphics.ui.RangeSeeker =
   this.max_ = max;
 
   /**
+   * The viewport size monitor.
+   * @type {!goog.dom.ViewportSizeMonitor}
+   * @private
+   */
+  this.viewportSizeMonitor_ = wtf.events.acquireViewportSizeMonitor();
+
+  /**
    * The range input element.
    * @type {!Element}
    * @private
@@ -108,6 +115,12 @@ wtf.replay.graphics.ui.RangeSeeker =
    */
   this.enabled_ = false;
   this.setEnabled(false);
+
+  // Relayout as required.
+  this.getHandler().listen(
+      this.viewportSizeMonitor_,
+      goog.events.EventType.RESIZE,
+      this.layout, false);
 
   wtf.timing.setImmediate(this.layout, this);
   this.requestRepaint();
