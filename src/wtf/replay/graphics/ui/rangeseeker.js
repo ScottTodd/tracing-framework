@@ -197,10 +197,6 @@ wtf.replay.graphics.ui.RangeSeeker.prototype.createSlider_ = function() {
  * @private
  */
 wtf.replay.graphics.ui.RangeSeeker.prototype.createSeeker_ = function() {
-  // TODO(scotttodd): Check for frameTimeVisualizer and handle it not existing.
-  // if (this.frameTimeVisualizer_) {
-  // }
-
   var paintContext = new wtf.ui.Painter(this.seekerCanvas_);
   this.setPaintContext(paintContext);
 

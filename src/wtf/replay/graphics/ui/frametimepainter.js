@@ -25,13 +25,13 @@ goog.require('wtf.ui.Painter');
  * @param {!HTMLCanvasElement} canvas Canvas element.
  * @param {number} min The smallest frame number.
  * @param {number} max The largest frame number.
- * @param {!wtf.replay.graphics.FrameTimeVisualizer} visualizer Frame time
+ * @param {!wtf.replay.graphics.FrameTimeVisualizer=} opt_visualizer Frame time
  *     visualizer that collects frame time data.
  * @constructor
  * @extends {wtf.ui.Painter}
  */
 wtf.replay.graphics.ui.FrameTimePainter = function FrameTimePainter(canvas,
-    min, max, visualizer) {
+    min, max, opt_visualizer) {
   goog.base(this, canvas);
 
   /**
@@ -57,14 +57,16 @@ wtf.replay.graphics.ui.FrameTimePainter = function FrameTimePainter(canvas,
 
   /**
    * The frame time visualizer.
-   * @type {!wtf.replay.graphics.FrameTimeVisualizer}
+   * @type {?wtf.replay.graphics.FrameTimeVisualizer}
    * @private
    */
-  this.frameTimeVisualizer_ = visualizer;
+  this.frameTimeVisualizer_ = opt_visualizer || null;
 
-  this.frameTimeVisualizer_.addListener(
-      wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED,
-      this.requestRepaint, this);
+  if (this.frameTimeVisualizer_) {
+    this.frameTimeVisualizer_.addListener(
+        wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED,
+        this.requestRepaint, this);
+  }
 
   /**
    * Current X of the mouse, if it is hovering over the context.
@@ -73,6 +75,14 @@ wtf.replay.graphics.ui.FrameTimePainter = function FrameTimePainter(canvas,
    * @private
    */
   this.hoverX_ = 0;
+
+  /**
+   * Current Y of the mouse, if it is hovering over the context.
+   * If this is zero then the mouse is not hovering.
+   * @type {number}
+   * @private
+   */
+  this.hoverY_ = 0;
 };
 goog.inherits(wtf.replay.graphics.ui.FrameTimePainter, wtf.ui.Painter);
 
@@ -93,6 +103,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.getCurrentFrame = function() {
 wtf.replay.graphics.ui.FrameTimePainter.prototype.setCurrentFrame = function(
     frameNumber) {
   this.currentFrame_ = frameNumber;
+  this.requestRepaint();
 };
 
 
@@ -106,12 +117,12 @@ wtf.replay.graphics.ui.FrameTimePainter.COLORS_ = {
   /**
    * The default background color of odd rows.
    */
-  ODD_ROW_BACKGROUND: '#ffffff',
+  ODD_ROW_BACKGROUND: '#FFFFFF',
 
   /**
    * The default background color of even rows.
    */
-  EVEN_ROW_BACKGROUND: '#fafafa',
+  EVEN_ROW_BACKGROUND: '#FAFAFA',
 
   /**
    * The background color of the currently selected frame.
@@ -119,9 +130,19 @@ wtf.replay.graphics.ui.FrameTimePainter.COLORS_ = {
   CURRENT_BACKGROUND: '#B6CCEF',
 
   /**
+   * The background color of the currently selected frame.
+   */
+  HOVER_BACKGROUND: '#DCDCDC',
+
+  /**
    * The color for lines at the 17ms and 33ms heights.
    */
-  TIME_MARKERS: '#dddddd',
+  TIME_MARKERS: '#DDDDDD',
+
+  /**
+   * The background color of the currently selected frame.
+   */
+  FRAME_HOVER: '#666666',
 
   /**
    * The color for frames whose average duration is less than 17ms.
@@ -157,11 +178,18 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
   var colors = wtf.replay.graphics.ui.FrameTimePainter.COLORS_;
   var leftX;
 
+  var hoverIndex = 0;
+  if (this.hoverX_) {
+    var hoverIndex = this.hitTest_(this.hoverX_, this.hoverY_, bounds);
+  }
+
   // Draw background bars in alternating shades of grey.
   for (var i = this.min_; i < this.max_; ++i) {
     leftX = wtf.math.remap(i - 0.5, this.min_, this.max_, 0, bounds.width);
     if (i == this.currentFrame_) {
       ctx.fillStyle = colors.CURRENT_BACKGROUND;
+    } else if (hoverIndex && i == hoverIndex) {
+      ctx.fillStyle = colors.HOVER_BACKGROUND;
     } else if (i % 2 == 0) {
       ctx.fillStyle = colors.EVEN_ROW_BACKGROUND;
     } else {
@@ -176,12 +204,12 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
   ctx.fillRect(bounds.left, bounds.height - 33 * yScale, bounds.width, 1);
 
   // Draw the hover line.
-  if (this.hoverX_) {
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(
-        bounds.left + this.hoverX_, bounds.top,
-        1, this.getScaledCanvasHeight() - bounds.top);
-  }
+  // if (this.hoverX_) {
+  //   ctx.fillStyle = '#000000';
+  //   ctx.fillRect(
+  //       bounds.left + this.hoverX_, bounds.top,
+  //       1, this.getScaledCanvasHeight() - bounds.top);
+  // }
 
   // Draw the frame times.
   if (this.frameTimeVisualizer_) {
@@ -209,6 +237,23 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
         ctx.fillRect(leftX, topY, frameWidth, duration * yScale);
       }
     }
+
+    // Draw highlight for the frame that is hovered over.
+    if (hoverIndex) {
+      var hoverFrame = frames[hoverIndex];
+
+      if (hoverFrame) {
+        var duration = hoverFrame.getAverageDuration();
+        leftX = wtf.math.remap(hoverIndex - 0.5, this.min_, this.max_,
+            0, bounds.width);
+        var topY = Math.max(bounds.height - duration * yScale, 0);
+
+        ctx.lineWidth = "3";
+        ctx.strokeStyle = colors.FRAME_HOVER;
+        ctx.rect(leftX, topY, frameWidth, duration * yScale);
+        ctx.stroke();
+      }
+    }
   }
 };
 
@@ -219,6 +264,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
 wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseMoveInternal =
     function(x, y, modifiers, bounds) {
   this.hoverX_ = x;
+  this.hoverY_ = y;
   this.requestRepaint();
 };
 
@@ -228,6 +274,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseMoveInternal =
  */
 wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseOutInternal = function() {
   this.hoverX_ = 0;
+  this.hoverY_ = 0;
   this.requestRepaint();
 };
 
@@ -259,14 +306,14 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.getInfoStringInternal =
     return undefined;
   }
 
-  var frame = this.frameTimeVisualizer_.getFrame(frameHit);
-  if (frame) {
-    return frame.getTooltip();
-  } else {
-    return 'Frame #' + frameHit;
+  if (this.frameTimeVisualizer_) {
+    var frame = this.frameTimeVisualizer_.getFrame(frameHit);
+    if (frame) {
+      return frame.getTooltip();
+    }
   }
 
-  return undefined;
+  return 'Frame #' + frameHit;
 };
 
 
