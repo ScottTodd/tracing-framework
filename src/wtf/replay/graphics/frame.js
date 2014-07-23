@@ -137,6 +137,7 @@ wtf.replay.graphics.Frame.prototype.getAverageDuration = function() {
   return this.totalDuration_ / this.durations_.length;
 };
 
+
 /**
  * Gets the tooltip message for this frame.
  * @return {string} Tooltip message.

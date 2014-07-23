@@ -13,6 +13,7 @@
 
 goog.provide('wtf.replay.graphics.ui.FrameTimePainter');
 
+goog.require('wtf.events');
 goog.require('wtf.math');
 goog.require('wtf.replay.graphics.FrameTimeVisualizer');
 goog.require('wtf.ui.Painter');
@@ -48,6 +49,13 @@ wtf.replay.graphics.ui.FrameTimePainter = function FrameTimePainter(canvas,
   this.max_ = max;
 
   /**
+   * The current frame number.
+   * @type {number}
+   * @private
+   */
+  this.currentFrame_ = -1;
+
+  /**
    * The frame time visualizer.
    * @type {!wtf.replay.graphics.FrameTimeVisualizer}
    * @private
@@ -56,11 +64,28 @@ wtf.replay.graphics.ui.FrameTimePainter = function FrameTimePainter(canvas,
 
   this.frameTimeVisualizer_.addListener(
       wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED,
-      function() {
-        this.requestRepaint();
-      }, this);
+      this.requestRepaint, this);
 };
 goog.inherits(wtf.replay.graphics.ui.FrameTimePainter, wtf.ui.Painter);
+
+
+/**
+ * Gets the current frame number.
+ * @return {number} The current frame number.
+ */
+wtf.replay.graphics.ui.FrameTimePainter.prototype.getCurrentFrame = function() {
+  return this.currentFrame_;
+};
+
+
+/**
+ * Sets the current frame number.
+ * @param {number} frameNumber The current frame number.
+ */
+wtf.replay.graphics.ui.FrameTimePainter.prototype.setCurrentFrame = function(
+    frameNumber) {
+  this.currentFrame_ = frameNumber;
+};
 
 
 /**
@@ -128,7 +153,8 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.onClickInternal =
     return false;
   }
 
-  goog.global.console.log('clicked on frame #' + frameHit);
+  var commandManager = wtf.events.getCommandManager();
+  commandManager.execute('goto_replay_frame', this, null, frameHit);
 
   return true;
 };
