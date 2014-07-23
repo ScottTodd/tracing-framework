@@ -146,9 +146,9 @@ wtf.replay.graphics.Frame.prototype.getTooltip = function() {
   tooltip += 'Frame #' + this.number_ + '\n';
   if (this.durations_.length > 0) {
     tooltip += 'Average time: ' + this.getAverageDuration().toFixed(2) + 'ms\n';
-    tooltip += 'All times:\n'
+    tooltip += 'All times:\n';
     for (var i = 0; i < this.durations_.length; ++i) {
-      tooltip += '  ' + this.durations_[i].toFixed(2) + 'ms\n'
+      tooltip += '  ' + this.durations_[i].toFixed(2) + 'ms\n';
     }
   }
   return tooltip;

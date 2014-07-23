@@ -203,19 +203,3 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.recordTimes_ = function() {
 
   this.updateStepIndex_();
 };
-
-
-/**
- * Runs this visualization on a substep of the current step.
- * @param {number=} opt_subStepIndex Target substep, or the current by default.
- * @override
- */
-wtf.replay.graphics.FrameTimeVisualizer.prototype.applyToSubStep = function(
-    opt_subStepIndex) {
-  // TODO(scotttodd): startContinuous
-  // TODO(scotttodd): Visualizer default for applyToSubStep, etc.
-  //     do nothing, maybe log that that funciton is not implemented for that
-  //     visualizer
-
-  this.active = true;
-};

@@ -83,7 +83,7 @@ wtf.replay.graphics.Session = function(db, parentElement, opt_domHelper) {
   var frameTimeVisualizer = new wtf.replay.graphics.FrameTimeVisualizer(
       this.playback_);
   this.playback_.addVisualizer(frameTimeVisualizer, 'frameTime');
-  this.playback_.visualizeSubStep('frameTime');
+  this.playback_.visualizeContinuous('frameTime');
 
   /**
    * A panel for controlling graphics replay.

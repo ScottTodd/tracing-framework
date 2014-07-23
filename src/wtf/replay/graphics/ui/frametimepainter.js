@@ -64,24 +64,30 @@ goog.inherits(wtf.replay.graphics.ui.FrameTimePainter, wtf.ui.Painter);
 
 
 /**
+ * Colors used for drawing frame time bars.
+ * @type {!Array.<string>}
+ * @private
+ * @const
+ */
+wtf.replay.graphics.ui.FrameTimePainter.FRAME_COLORS_ = [
+  '#4C993F',
+  '#ED9128',
+  '#F23838',
+  '#991E1E'
+];
+
+
+/**
  * @override
  */
 wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
     ctx, bounds) {
-
-  // ctx.fillStyle = '#AA2222';
-  // ctx.fillRect(0, 0, this.frameTimeVisualizer_.numTimedFrames_, 30);
-  // ctx.fillRect(this.frameTimeVisualizer_.numTimedFrames_, 0, 20, 30);
-
-  // TODO(scotttodd): figure out how to resize....
-
   var frames = this.frameTimeVisualizer_.getFrames();
+  var colors = wtf.replay.graphics.ui.FrameTimePainter.FRAME_COLORS_;
 
-  // The y-axis is frame duration.
+  // The x-axis is frame number, the y-axis is frame duration.
   var yScale = 1 / wtf.math.remap(45, 0, bounds.height, 0, 1);
   var frameWidth = bounds.width / (this.max_ - this.min_);
-
-  // The x-axis is frame number.
 
   ctx.beginPath();
   for (var i = 0; i < frames.length; ++i) {
@@ -94,15 +100,14 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
       var topY = Math.max(bounds.height - duration * yScale, 0);
 
       // Draw a bar for this frame.
-      // TODO(scotttodd): More colors? Using the same colors from overdraw.
       if (duration < 17) {
-        ctx.fillStyle = '#4C993F';
+        ctx.fillStyle = colors[0];
       } else if (duration < 33) {
-        ctx.fillStyle = '#ED9128';
+        ctx.fillStyle = colors[1];
       } else if (duration < 50) {
-        ctx.fillStyle = '#F23838';
+        ctx.fillStyle = colors[2];
       } else {
-        ctx.fillStyle = '#991E1E';
+        ctx.fillStyle = colors[3];
       }
       ctx.fillRect(leftX, topY, frameWidth, duration * yScale);
     }
@@ -138,7 +143,6 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.getInfoStringInternal =
   if (!frameHit) {
     return undefined;
   }
-
 
   var frame = this.frameTimeVisualizer_.getFrame(frameHit);
   if (frame) {
