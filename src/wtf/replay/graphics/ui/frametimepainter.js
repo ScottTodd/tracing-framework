@@ -65,6 +65,14 @@ wtf.replay.graphics.ui.FrameTimePainter = function FrameTimePainter(canvas,
   this.frameTimeVisualizer_.addListener(
       wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED,
       this.requestRepaint, this);
+
+  /**
+   * Current X of the mouse, if it is hovering over the context.
+   * If this is zero then the mouse is not hovering.
+   * @type {number}
+   * @private
+   */
+  this.hoverX_ = 0;
 };
 goog.inherits(wtf.replay.graphics.ui.FrameTimePainter, wtf.ui.Painter);
 
@@ -89,17 +97,52 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.setCurrentFrame = function(
 
 
 /**
- * Colors used for drawing frame time bars.
- * @type {!Array.<string>}
- * @private
+ * Contains colors used to draw frame time bars and other elements.
+ * @type {!Object.<string>}
  * @const
+ * @private
  */
-wtf.replay.graphics.ui.FrameTimePainter.FRAME_COLORS_ = [
-  '#4C993F',
-  '#ED9128',
-  '#F23838',
-  '#991E1E'
-];
+wtf.replay.graphics.ui.FrameTimePainter.COLORS_ = {
+  /**
+   * The default background color of odd rows.
+   */
+  ODD_ROW_BACKGROUND: '#ffffff',
+
+  /**
+   * The default background color of even rows.
+   */
+  EVEN_ROW_BACKGROUND: '#fafafa',
+
+  /**
+   * The background color of the currently selected frame.
+   */
+  CURRENT_BACKGROUND: '#B6CCEF',
+
+  /**
+   * The color for lines at the 17ms and 33ms heights.
+   */
+  TIME_MARKERS: '#dddddd',
+
+  /**
+   * The color for frames whose average duration is less than 17ms.
+   */
+  FRAME_TIME_17: '#4C993F',
+
+  /**
+   * The color for frames whose average duration is between 17ms and 33ms.
+   */
+  FRAME_TIME_33: '#ED9128',
+
+  /**
+   * The color for frames whose average duration is between 33ms and 50ms.
+   */
+  FRAME_TIME_50: '#F23838',
+
+  /**
+   * The color for frames whose average duration is greater than 50ms.
+   */
+  FRAME_TIME_50_PLUS: '#991E1E'
+};
 
 
 /**
@@ -107,39 +150,85 @@ wtf.replay.graphics.ui.FrameTimePainter.FRAME_COLORS_ = [
  */
 wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
     ctx, bounds) {
-  var frames = this.frameTimeVisualizer_.getFrames();
-  var colors = wtf.replay.graphics.ui.FrameTimePainter.FRAME_COLORS_;
-
   // The x-axis is frame number, the y-axis is frame duration.
   var yScale = 1 / wtf.math.remap(45, 0, bounds.height, 0, 1);
   var frameWidth = bounds.width / (this.max_ - this.min_);
 
-  ctx.beginPath();
-  for (var i = 0; i < frames.length; ++i) {
-    var currentFrameNumber = i;
-    var frame = frames[currentFrameNumber];
-    if (frame) {
-      var duration = frame.getAverageDuration();
-      var leftX = wtf.math.remap(currentFrameNumber - 0.5,
-          this.min_, this.max_, 0, bounds.width);
-      var topY = Math.max(bounds.height - duration * yScale, 0);
+  var colors = wtf.replay.graphics.ui.FrameTimePainter.COLORS_;
+  var leftX;
 
-      // Draw a bar for this frame.
-      if (duration < 17) {
-        ctx.fillStyle = colors[0];
-      } else if (duration < 33) {
-        ctx.fillStyle = colors[1];
-      } else if (duration < 50) {
-        ctx.fillStyle = colors[2];
-      } else {
-        ctx.fillStyle = colors[3];
-      }
-      ctx.fillRect(leftX, topY, frameWidth, duration * yScale);
+  // Draw background bars in alternating shades of grey.
+  for (var i = this.min_; i < this.max_; ++i) {
+    leftX = wtf.math.remap(i - 0.5, this.min_, this.max_, 0, bounds.width);
+    if (i == this.currentFrame_) {
+      ctx.fillStyle = colors.CURRENT_BACKGROUND;
+    } else if (i % 2 == 0) {
+      ctx.fillStyle = colors.EVEN_ROW_BACKGROUND;
+    } else {
+      ctx.fillStyle = colors.ODD_ROW_BACKGROUND;
     }
+    ctx.fillRect(leftX, 0, frameWidth, bounds.height);
   }
 
-  // Draw label on the left.
-  // this.drawLabel('frames');
+  // Draw lines at 17ms and 33ms.
+  ctx.fillStyle = colors.TIME_MARKERS;
+  ctx.fillRect(bounds.left, bounds.height - 17 * yScale, bounds.width, 1);
+  ctx.fillRect(bounds.left, bounds.height - 33 * yScale, bounds.width, 1);
+
+  // Draw the hover line.
+  if (this.hoverX_) {
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(
+        bounds.left + this.hoverX_, bounds.top,
+        1, this.getScaledCanvasHeight() - bounds.top);
+  }
+
+  // Draw the frame times.
+  if (this.frameTimeVisualizer_) {
+    var frames = this.frameTimeVisualizer_.getFrames();
+
+    ctx.beginPath();
+    for (var i = this.min_; i < this.max_; ++i) {
+      var frame = frames[i];
+      if (frame) {
+        var duration = frame.getAverageDuration();
+        leftX = wtf.math.remap(i - 0.5, this.min_, this.max_,
+            0, bounds.width);
+        var topY = Math.max(bounds.height - duration * yScale, 0);
+
+        // Draw a bar for this frame.
+        if (duration < 17) {
+          ctx.fillStyle = colors.FRAME_TIME_17;
+        } else if (duration < 33) {
+          ctx.fillStyle = colors.FRAME_TIME_33;
+        } else if (duration < 50) {
+          ctx.fillStyle = colors.FRAME_TIME_50;
+        } else {
+          ctx.fillStyle = colors.FRAME_TIME_50_PLUS;
+        }
+        ctx.fillRect(leftX, topY, frameWidth, duration * yScale);
+      }
+    }
+  }
+};
+
+
+/**
+ * @override
+ */
+wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseMoveInternal =
+    function(x, y, modifiers, bounds) {
+  this.hoverX_ = x;
+  this.requestRepaint();
+};
+
+
+/**
+ * @override
+ */
+wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseOutInternal = function() {
+  this.hoverX_ = 0;
+  this.requestRepaint();
 };
 
 
@@ -173,6 +262,8 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.getInfoStringInternal =
   var frame = this.frameTimeVisualizer_.getFrame(frameHit);
   if (frame) {
     return frame.getTooltip();
+  } else {
+    return 'Frame #' + frameHit;
   }
 
   return undefined;
