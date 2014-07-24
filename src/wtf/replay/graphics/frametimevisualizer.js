@@ -6,7 +6,7 @@
  */
 
 /**
- * @fileoverview FrameTimeVisualizer. Visualizer of frame times.
+ * @fileoverview FrameTimeVisualizer. Records frame times during playback.
  *
  * @author scotttodd@google.com (Scott Todd)
  */
@@ -14,8 +14,8 @@
 goog.provide('wtf.replay.graphics.FrameTimeVisualizer');
 
 goog.require('goog.events');
-goog.require('wtf.replay.graphics.Frame');
 goog.require('wtf.replay.graphics.Playback');
+goog.require('wtf.replay.graphics.ReplayFrame');
 goog.require('wtf.replay.graphics.Visualizer');
 
 
@@ -39,7 +39,7 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
 
   /**
    * Array of frames recorded.
-   * @type {!Array.<!wtf.replay.graphics.Frame>}
+   * @type {!Array.<!wtf.replay.graphics.ReplayFrame>}
    * @private
    */
   this.frames_ = [];
@@ -97,7 +97,7 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.setupMutators = function() {
 
 /**
  * Gets all frames.
- * @return {!Array.<!wtf.replay.graphics.Frame>} The recorded frames.
+ * @return {!Array.<!wtf.replay.graphics.ReplayFrame>} The recorded frames.
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrames = function() {
   return this.frames_;
@@ -107,7 +107,7 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrames = function() {
 /**
  * Gets a specific frame.
  * @param {number} number The frame number.
- * @return {wtf.replay.graphics.Frame} The requested frame, if it exists.
+ * @return {wtf.replay.graphics.ReplayFrame} The requested frame, if it exists.
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrame = function(number) {
   return this.frames_[number] || null;
@@ -115,15 +115,15 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrame = function(number) {
 
 
 /**
- * Gets the current frame, creating a new frame if needed.
- * @return {!wtf.replay.graphics.Frame} The current frame.
+ * Gets the current Frame object, creating a new Frame if needed.
+ * @return {!wtf.replay.graphics.ReplayFrame} The current frame.
  * @private
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.getCurrentFrame_ =
     function() {
   var currentStepIndex = this.playback.getCurrentStepIndex();
   if (!this.frames_[currentStepIndex]) {
-    this.frames_[currentStepIndex] = new wtf.replay.graphics.Frame(
+    this.frames_[currentStepIndex] = new wtf.replay.graphics.ReplayFrame(
         currentStepIndex);
   }
   return this.frames_[currentStepIndex];
@@ -132,7 +132,7 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.getCurrentFrame_ =
 
 /**
  * Gets the previous frame.
- * @return {!wtf.replay.graphics.Frame} The previous frame.
+ * @return {!wtf.replay.graphics.ReplayFrame} The previous frame.
  * @private
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.getPreviousFrame_ =

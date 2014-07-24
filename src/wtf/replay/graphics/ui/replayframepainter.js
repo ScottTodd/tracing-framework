@@ -6,12 +6,12 @@
  */
 
 /**
- * @fileoverview Frame time painter for the range seeker control.
+ * @fileoverview Supports navigation and plots replay frame time.
  *
  * @author scotttodd@google.com (Scott Todd)
  */
 
-goog.provide('wtf.replay.graphics.ui.FrameTimePainter');
+goog.provide('wtf.replay.graphics.ui.ReplayFramePainter');
 
 goog.require('wtf.events');
 goog.require('wtf.math');
@@ -21,17 +21,17 @@ goog.require('wtf.ui.Painter');
 
 
 /**
- * Frame time painter.
+ * Frame painter.
  * @param {!HTMLCanvasElement} canvas Canvas element.
  * @param {number} min The smallest frame number.
  * @param {number} max The largest frame number.
  * @param {wtf.replay.graphics.FrameTimeVisualizer=} opt_visualizer Frame time
- *     visualizer that collects frame time data.
+ *     visualizer that collects replay frame time data.
  * @constructor
  * @extends {wtf.ui.Painter}
  */
-wtf.replay.graphics.ui.FrameTimePainter = function FrameTimePainter(canvas,
-    min, max, opt_visualizer) {
+wtf.replay.graphics.ui.ReplayFramePainter = function(canvas, min, max,
+    opt_visualizer) {
   goog.base(this, canvas);
 
   /**
@@ -84,14 +84,15 @@ wtf.replay.graphics.ui.FrameTimePainter = function FrameTimePainter(canvas,
    */
   this.hoverY_ = 0;
 };
-goog.inherits(wtf.replay.graphics.ui.FrameTimePainter, wtf.ui.Painter);
+goog.inherits(wtf.replay.graphics.ui.ReplayFramePainter, wtf.ui.Painter);
 
 
 /**
  * Gets the current frame number.
  * @return {number} The current frame number.
  */
-wtf.replay.graphics.ui.FrameTimePainter.prototype.getCurrentFrame = function() {
+wtf.replay.graphics.ui.ReplayFramePainter.prototype.getCurrentFrame =
+    function() {
   return this.currentFrame_;
 };
 
@@ -100,7 +101,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.getCurrentFrame = function() {
  * Sets the current frame number.
  * @param {number} frameNumber The current frame number.
  */
-wtf.replay.graphics.ui.FrameTimePainter.prototype.setCurrentFrame = function(
+wtf.replay.graphics.ui.ReplayFramePainter.prototype.setCurrentFrame = function(
     frameNumber) {
   this.currentFrame_ = frameNumber;
   this.requestRepaint();
@@ -113,7 +114,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.setCurrentFrame = function(
  * @const
  * @private
  */
-wtf.replay.graphics.ui.FrameTimePainter.COLORS_ = {
+wtf.replay.graphics.ui.ReplayFramePainter.COLORS_ = {
   /**
    * The default background color of odd rows.
    */
@@ -140,9 +141,9 @@ wtf.replay.graphics.ui.FrameTimePainter.COLORS_ = {
   TIME_MARKERS: '#DDDDDD',
 
   /**
-   * The background color of the currently selected frame.
+   * The border color of the currently hovered over frame.
    */
-  FRAME_HOVER: '#666666',
+  HOVER_BORDER: '#222222',
 
   /**
    * The color for frames whose average duration is less than 17ms.
@@ -167,15 +168,23 @@ wtf.replay.graphics.ui.FrameTimePainter.COLORS_ = {
 
 
 /**
+ * Hover border size in pixels. Used to highlight bars in the bar graph.
+ * @type {number}
+ * @const
+ */
+wtf.replay.graphics.ui.ReplayFramePainter.HOVER_BORDER_SIZE = 2;
+
+
+/**
  * @override
  */
-wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
+wtf.replay.graphics.ui.ReplayFramePainter.prototype.repaintInternal = function(
     ctx, bounds) {
   // The x-axis is frame number, the y-axis is frame duration.
   var yScale = 1 / wtf.math.remap(45, 0, bounds.height, 0, 1);
   var frameWidth = bounds.width / (this.max_ - this.min_);
 
-  var colors = wtf.replay.graphics.ui.FrameTimePainter.COLORS_;
+  var colors = wtf.replay.graphics.ui.ReplayFramePainter.COLORS_;
   var leftX, topY, duration;
 
   var hoverIndex = 0;
@@ -203,11 +212,10 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
   ctx.fillRect(bounds.left, bounds.height - 17 * yScale, bounds.width, 1);
   ctx.fillRect(bounds.left, bounds.height - 33 * yScale, bounds.width, 1);
 
-  // Draw the frame times.
+  // Draw the frame times in a colored bar graph.
   if (this.frameTimeVisualizer_) {
     var frames = this.frameTimeVisualizer_.getFrames();
 
-    ctx.beginPath();
     for (var i = this.min_; i < this.max_; ++i) {
       var frame = frames[i];
       if (frame) {
@@ -230,7 +238,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
       }
     }
 
-    // Draw highlight for the frame that is hovered over.
+    // Draw a highlight border for the frame that is hovered over.
     if (hoverIndex) {
       var hoverFrame = frames[hoverIndex];
       if (hoverFrame) {
@@ -239,10 +247,14 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
             0, bounds.width);
         topY = Math.max(bounds.height - duration * yScale, 0);
 
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = colors.FRAME_HOVER;
-        ctx.rect(leftX, topY, frameWidth, duration * yScale);
-        ctx.stroke();
+        var borderSize =
+            wtf.replay.graphics.ui.ReplayFramePainter.HOVER_BORDER_SIZE;
+
+        // Draw the outer hover border.
+        ctx.lineWidth = borderSize;
+        ctx.strokeStyle = colors.HOVER_BORDER;
+        ctx.strokeRect(leftX - borderSize / 2, topY - borderSize / 2,
+            frameWidth + borderSize, duration * yScale + borderSize);
       }
     }
   }
@@ -252,7 +264,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.repaintInternal = function(
 /**
  * @override
  */
-wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseMoveInternal =
+wtf.replay.graphics.ui.ReplayFramePainter.prototype.onMouseMoveInternal =
     function(x, y, modifiers, bounds) {
   this.hoverX_ = x;
   this.hoverY_ = y;
@@ -263,7 +275,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseMoveInternal =
 /**
  * @override
  */
-wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseOutInternal =
+wtf.replay.graphics.ui.ReplayFramePainter.prototype.onMouseOutInternal =
     function() {
   this.hoverX_ = 0;
   this.hoverY_ = 0;
@@ -274,7 +286,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.onMouseOutInternal =
 /**
  * @override
  */
-wtf.replay.graphics.ui.FrameTimePainter.prototype.onClickInternal =
+wtf.replay.graphics.ui.ReplayFramePainter.prototype.onClickInternal =
     function(x, y, modifiers, bounds) {
   var frameHit = this.hitTest_(x, y, bounds);
   if (!frameHit) {
@@ -291,7 +303,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.onClickInternal =
 /**
  * @override
  */
-wtf.replay.graphics.ui.FrameTimePainter.prototype.getInfoStringInternal =
+wtf.replay.graphics.ui.ReplayFramePainter.prototype.getInfoStringInternal =
     function(x, y, bounds) {
   var frameHit = this.hitTest_(x, y, bounds);
   if (!frameHit) {
@@ -317,7 +329,7 @@ wtf.replay.graphics.ui.FrameTimePainter.prototype.getInfoStringInternal =
  * @return {number} Frame number at the given point.
  * @private
  */
-wtf.replay.graphics.ui.FrameTimePainter.prototype.hitTest_ = function(
+wtf.replay.graphics.ui.ReplayFramePainter.prototype.hitTest_ = function(
     x, y, bounds) {
   return Math.round(wtf.math.remap(x, bounds.left, bounds.left + bounds.width,
       this.min_, this.max_));

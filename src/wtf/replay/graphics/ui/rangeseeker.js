@@ -20,11 +20,10 @@ goog.require('goog.events.EventType');
 goog.require('goog.soy');
 goog.require('goog.string');
 goog.require('wtf.events');
-goog.require('wtf.replay.graphics.ui.FrameTimePainter');
+goog.require('wtf.replay.graphics.ui.ReplayFramePainter');
 goog.require('wtf.replay.graphics.ui.graphicsRangeSeeker');
 goog.require('wtf.timing');
 goog.require('wtf.ui.Control');
-goog.require('wtf.ui.Painter');
 goog.require('wtf.ui.Tooltip');
 
 
@@ -95,11 +94,11 @@ wtf.replay.graphics.ui.RangeSeeker =
       this.getChildElement(goog.getCssName('canvas')));
 
   /**
-   * The frame time painter with seeking controls.
-   * @type {!wtf.replay.graphics.ui.FrameTimePainter}
+   * The frame painter with seeking controls.
+   * @type {!wtf.replay.graphics.ui.ReplayFramePainter}
    * @private
    */
-  this.seeker_ = this.createSeeker_();
+  this.framePainter_ = this.createFramePainter_();
   this.setValue(min);
 
   /**
@@ -159,30 +158,25 @@ wtf.replay.graphics.ui.RangeSeeker.prototype.createDom = function(dom) {
 
 
 /**
- * Creates the seeker.
- * @return {!wtf.replay.graphics.ui.FrameTimePainter} The painter seeker.
+ * Creates the frame painter with seeking controls.
+ * @return {!wtf.replay.graphics.ui.ReplayFramePainter} The frame painter.
  * @private
  */
-wtf.replay.graphics.ui.RangeSeeker.prototype.createSeeker_ = function() {
-  var paintContext = new wtf.ui.Painter(this.seekerCanvas_);
-  this.setPaintContext(paintContext);
-
-  var frameTimePainter = new wtf.replay.graphics.ui.FrameTimePainter(
+wtf.replay.graphics.ui.RangeSeeker.prototype.createFramePainter_ = function() {
+  var replayFramePainter = new wtf.replay.graphics.ui.ReplayFramePainter(
       this.seekerCanvas_, this.min_, this.max_,
       this.frameTimeVisualizer_);
-  paintContext.addChildPainter(frameTimePainter);
+  this.setPaintContext(replayFramePainter);
 
   var commandManager = wtf.events.getCommandManager();
   commandManager.registerSimpleCommand(
       'goto_replay_frame', function(source, target, frame) {
-        this.seeker_.setCurrentFrame(frame);
-        this.valueDisplayer_.value = frame;
-
+        this.setValue(frame);
         this.emitEvent(
             wtf.replay.graphics.ui.RangeSeeker.EventType.VALUE_CHANGED);
       }, this);
 
-  return frameTimePainter;
+  return replayFramePainter;
 };
 
 
@@ -247,7 +241,7 @@ wtf.replay.graphics.ui.RangeSeeker.prototype.setEnabled = function(enabled) {
  * @return {number} The current value.
  */
 wtf.replay.graphics.ui.RangeSeeker.prototype.getValue = function() {
-  return this.seeker_.getCurrentFrame();
+  return this.framePainter_.getCurrentFrame();
 };
 
 
@@ -256,6 +250,6 @@ wtf.replay.graphics.ui.RangeSeeker.prototype.getValue = function() {
  * @param {number} value The new value.
  */
 wtf.replay.graphics.ui.RangeSeeker.prototype.setValue = function(value) {
-  this.seeker_.setCurrentFrame(value);
+  this.framePainter_.setCurrentFrame(value);
   this.valueDisplayer_.value = value;
 };
