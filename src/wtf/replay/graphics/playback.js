@@ -1222,14 +1222,14 @@ wtf.replay.graphics.Playback.prototype.realizeEvent_ = function(it) {
   var associatedFunction = this.callLookupTable_[it.getTypeId()];
   if (associatedFunction) {
     try {
-      // If any handleWrapEvent returns false, do not call the function.
-      var callFunction = true;
+      // If any handleReplaceEvent returns true, do not call the function.
+      var skipCall = false;
       for (i = 0; i < this.visualizers_.length; ++i) {
-        callFunction = callFunction &&
-            this.visualizers_[i].handleWrapEvent(it, this.currentContext_);
+        skipCall = skipCall ||
+            this.visualizers_[i].handleReplaceEvent(it, this.currentContext_);
       }
 
-      if (callFunction) {
+      if (!skipCall) {
         associatedFunction.call(null, it.getId(), this, this.currentContext_,
             it.getArguments(), this.objects_);
       }

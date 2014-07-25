@@ -71,49 +71,49 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.setupMutators = function() {
   });
 
   this.registerMutator('WebGLRenderingContext#drawArrays', {
-    wrap: function(visualizer, gl, args) {
+    replace: function(visualizer, gl, args) {
       return visualizer.handleDrawCall_();
     }
   });
 
   this.registerMutator('WebGLRenderingContext#drawElements', {
-    wrap: function(visualizer, gl, args) {
+    replace: function(visualizer, gl, args) {
       return visualizer.handleDrawCall_();
     }
   });
 
   this.registerMutator('ANGLEInstancedArrays#drawArraysInstancedANGLE', {
-    wrap: function(visualizer, gl, args) {
+    replace: function(visualizer, gl, args) {
       return visualizer.handleDrawCall_();
     }
   });
 
   this.registerMutator('ANGLEInstancedArrays#drawElementsInstancedANGLE', {
-    wrap: function(visualizer, gl, args) {
+    replace: function(visualizer, gl, args) {
       return visualizer.handleDrawCall_();
     }
   });
 
   this.registerMutator('WebGLRenderingContext#createBuffer', {
-    wrap: function(visualizer, gl, args) {
+    replace: function(visualizer, gl, args) {
       return false;
     }
   });
 
   this.registerMutator('WebGLRenderingContext#bindBuffer', {
-    wrap: function(visualizer, gl, args) {
+    replace: function(visualizer, gl, args) {
       return false;
     }
   });
 
   this.registerMutator('WebGLRenderingContext#bufferData', {
-    wrap: function(visualizer, gl, args) {
+    replace: function(visualizer, gl, args) {
       return false;
     }
   });
 
   this.registerMutator('WebGLRenderingContext#vertexAttribPointer', {
-    wrap: function(visualizer, gl, args) {
+    replace: function(visualizer, gl, args) {
       return false;
     }
   });
@@ -121,8 +121,8 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.setupMutators = function() {
 
 
 /**
- * Returns whether this draw call should be handled normally in playback.
- * @return {boolean} Whether this draw call should be handled normally.
+ * Returns whether this draw call should be skipped in playback.
+ * @return {boolean} Whether the event should be skipped in playback.
  * @private
  */
 wtf.replay.graphics.SkipCallsVisualizer.prototype.handleDrawCall_ = function() {
@@ -130,26 +130,42 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.handleDrawCall_ = function() {
 
   if (this.latestProgramHandle_ == 17) {
     // Try skipping program handles 29, 11, 17 with BLK.
-    return false;
-  } else {
     return true;
+  } else {
+    return false;
   }
 };
 
 
 /**
- * Handles operations that should occur around or in place of any event.
+ * Handles operations that could occur in place of any event.
  * @param {!wtf.db.EventIterator} it Event iterator.
  * @param {WebGLRenderingContext} gl The context.
- * @return {boolean} Whether the event should be handled normally in playback.
+ * @return {boolean} Whether the event should be skipped in playback.
  * @protected
  */
-wtf.replay.graphics.SkipCallsVisualizer.prototype.anyWrapEvent = function(
+wtf.replay.graphics.SkipCallsVisualizer.prototype.anyReplaceEvent = function(
     it, gl) {
   // FrameTimeVisualizer requires setContext.
-  if (it.getName() == 'wtf.webgl#setContext') {
-    return true;
-  }
+  // if (it.getName() == 'wtf.webgl#setContext') {
+  //   return true;
+  // }
+  // return false;
   return false;
-  // return true;
+};
+
+
+/**
+ * Restores state back to standard playback.
+ */
+wtf.replay.graphics.SkipCallsVisualizer.prototype.restoreState = function() {
+  this.active = false;
+
+  // Seek from the start to the current step to update all internal state.
+  var currentStepIndex = this.playback.getCurrentStepIndex();
+  var currentSubStepIndex = this.playback.getSubStepEventIndex();
+
+  this.playback.seekStep(0);
+  this.playback.seekStep(currentStepIndex);
+  this.playback.seekSubStepEvent(currentSubStepIndex);
 };

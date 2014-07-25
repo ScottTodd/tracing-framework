@@ -49,7 +49,10 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
 
   playback.addListener(wtf.replay.graphics.Playback.EventType.PLAY_STOPPED,
       function() {
-        this.getPreviousFrame_().cancelTiming();
+        var previousFrame = this.getPreviousFrame_();
+        if (previousFrame) {
+          previousFrame.cancelTiming();
+        }
       }, this);
 
   /**
