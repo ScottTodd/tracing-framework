@@ -139,6 +139,46 @@ wtf.replay.graphics.Visualizer.prototype.anyPreEvent = goog.nullFunction;
 
 
 /**
+ * Handles operations that should occur around or in place of an event.
+ * @param {!wtf.db.EventIterator} it Event iterator.
+ * @param {WebGLRenderingContext} gl The context.
+ * @return {boolean} Whether the event should be handled normally in playback.
+ */
+wtf.replay.graphics.Visualizer.prototype.handleWrapEvent = function(it, gl) {
+  if (!this.active) {
+    return true;
+  }
+
+  var handleNormally = true;
+  handleNormally = handleNormally && this.anyWrapEvent(it, gl);
+
+  var mutatorsForEvent = this.mutators_[it.getTypeId()];
+  if (mutatorsForEvent) {
+    for (var i = 0; i < mutatorsForEvent.length; ++i) {
+      if (mutatorsForEvent[i].wrap) {
+        handleNormally = handleNormally &&
+            mutatorsForEvent[i].wrap.call(null, this, gl, it.getArguments());
+      }
+    }
+  }
+
+  return handleNormally;
+};
+
+
+/**
+ * Handles operations that should occur around or in place of any event.
+ * @param {!wtf.db.EventIterator} it Event iterator.
+ * @param {WebGLRenderingContext} gl The context.
+ * @return {boolean} Whether the event should be handled normally in playback.
+ * @protected
+ */
+wtf.replay.graphics.Visualizer.prototype.anyWrapEvent = function(it, gl) {
+  return true;
+};
+
+
+/**
  * Handles operations that should occur after the provided event.
  * @param {!wtf.db.EventIterator} it Event iterator.
  * @param {WebGLRenderingContext} gl The context.
@@ -179,7 +219,9 @@ wtf.replay.graphics.Visualizer.MutatorHandler;
 
 
 /**
- * @typedef {{pre: (wtf.replay.graphics.Visualizer.MutatorHandler|undefined),
+ * @typedef {{
+ *   pre: (wtf.replay.graphics.Visualizer.MutatorHandler|undefined),
+ *   wrap: (wtf.replay.graphics.Visualizer.MutatorHandler|undefined),
  *   post: (wtf.replay.graphics.Visualizer.MutatorHandler|undefined)}}
  */
 wtf.replay.graphics.Visualizer.Mutator;

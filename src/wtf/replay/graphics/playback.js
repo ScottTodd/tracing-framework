@@ -1222,8 +1222,17 @@ wtf.replay.graphics.Playback.prototype.realizeEvent_ = function(it) {
   var associatedFunction = this.callLookupTable_[it.getTypeId()];
   if (associatedFunction) {
     try {
-      associatedFunction.call(null, it.getId(), this, this.currentContext_,
-          it.getArguments(), this.objects_);
+      // If any handleWrapEvent returns false, do not call the function.
+      var callFunction = true;
+      for (i = 0; i < this.visualizers_.length; ++i) {
+        callFunction = callFunction &&
+            this.visualizers_[i].handleWrapEvent(it, this.currentContext_);
+      }
+
+      if (callFunction) {
+        associatedFunction.call(null, it.getId(), this, this.currentContext_,
+            it.getArguments(), this.objects_);
+      }
     } catch (e) {
       // TODO(benvanik): log to status bar? this usually happens with
       //     cross-origin texture uploads.
