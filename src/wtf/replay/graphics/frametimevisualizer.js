@@ -38,8 +38,16 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
   this.latestStepIndex_ = -1;
 
   /**
-   * Array of frames recorded.
-   * @type {!Array.<!wtf.replay.graphics.ReplayFrame>}
+   * The id of the latest experiment.
+   * Experiments are configurations of visualizer states which affect playback.
+   * @type {number}
+   * @private
+   */
+  this.latestExperimentId_ = 0;
+
+  /**
+   * Array of experiments containing arrays of frames recorded.
+   * @type {!Array.<!Array.<!wtf.replay.graphics.ReplayFrame>>}
    * @private
    */
   this.frames_ = [];
@@ -100,20 +108,27 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.setupMutators = function() {
 
 /**
  * Gets all frames.
+ * @param {number} experimentId The experiment id.
  * @return {!Array.<!wtf.replay.graphics.ReplayFrame>} The recorded frames.
  */
-wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrames = function() {
-  return this.frames_;
+wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrames = function(
+    experimentId) {
+  return this.frames_[experimentId] || [];
 };
 
 
 /**
  * Gets a specific frame.
+ * @param {number} experimentId The experiment id.
  * @param {number} number The frame number.
  * @return {wtf.replay.graphics.ReplayFrame} The requested frame, if it exists.
  */
-wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrame = function(number) {
-  return this.frames_[number] || null;
+wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrame = function(
+    experimentId, number) {
+  if (!this.frames_[experimentId]) {
+    return null;
+  }
+  return this.frames_[experimentId][number] || null;
 };
 
 
@@ -124,12 +139,16 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrame = function(number) {
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.getCurrentFrame_ =
     function() {
+  var experimentId = this.latestExperimentId_;
   var currentStepIndex = this.playback.getCurrentStepIndex();
-  if (!this.frames_[currentStepIndex]) {
-    this.frames_[currentStepIndex] = new wtf.replay.graphics.ReplayFrame(
-        currentStepIndex);
+  if (!this.frames_[experimentId]) {
+    this.frames_[experimentId] = [];
   }
-  return this.frames_[currentStepIndex];
+  if (!this.frames_[experimentId][currentStepIndex]) {
+    this.frames_[experimentId][currentStepIndex] =
+        new wtf.replay.graphics.ReplayFrame(currentStepIndex);
+  }
+  return this.frames_[experimentId][currentStepIndex];
 };
 
 
@@ -140,7 +159,10 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.getCurrentFrame_ =
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.getPreviousFrame_ =
     function() {
-  return this.frames_[this.latestStepIndex_];
+  if (!this.frames_[this.latestExperimentId_]) {
+    this.frames_[this.latestExperimentId_] = [];
+  }
+  return this.frames_[this.latestExperimentId_][this.latestStepIndex_];
 };
 
 

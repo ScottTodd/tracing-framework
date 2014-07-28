@@ -214,28 +214,42 @@ wtf.replay.graphics.ui.ReplayFramePainter.prototype.repaintInternal = function(
 
   // Draw the frame times in a colored bar graph.
   if (this.frameTimeVisualizer_) {
-    var frames = this.frameTimeVisualizer_.getFrames();
 
-    for (var i = this.min_; i < this.max_; ++i) {
-      var frame = frames[i];
-      if (frame) {
-        duration = frame.getAverageDuration();
-        leftX = wtf.math.remap(i - 0.5, this.min_, this.max_,
-            0, bounds.width);
-        topY = Math.max(bounds.height - duration * yScale, 0);
+    for (var exp = 0; exp < this.frameTimeVisualizer_.frames_.length; ++exp) {
+      var frames = this.frameTimeVisualizer_.getFrames(exp);
 
-        // Draw a bar for this frame.
-        if (duration < 17) {
-          ctx.fillStyle = colors.FRAME_TIME_17;
-        } else if (duration < 33) {
-          ctx.fillStyle = colors.FRAME_TIME_33;
-        } else if (duration < 50) {
-          ctx.fillStyle = colors.FRAME_TIME_50;
-        } else {
-          ctx.fillStyle = colors.FRAME_TIME_50_PLUS;
+      ctx.beginPath();
+      ctx.moveTo(0, bounds.height);
+      for (var i = this.min_; i < this.max_; ++i) {
+        var frame = frames[i];
+        if (frame) {
+          duration = frame.getAverageDuration();
+          leftX = wtf.math.remap(i - 0.5, this.min_, this.max_,
+              0, bounds.width);
+          topY = Math.max(bounds.height - duration * yScale, 0);
+
+          // Draw a bar for this frame.
+          if (exp == 0) {
+            if (duration < 17) {
+              ctx.fillStyle = colors.FRAME_TIME_17;
+            } else if (duration < 33) {
+              ctx.fillStyle = colors.FRAME_TIME_33;
+            } else if (duration < 50) {
+              ctx.fillStyle = colors.FRAME_TIME_50;
+            } else {
+              ctx.fillStyle = colors.FRAME_TIME_50_PLUS;
+            }
+            ctx.fillRect(leftX, topY, frameWidth, duration * yScale);
+          }
+
+          var lineX = wtf.math.remap(i, this.min_, this.max_, 0, bounds.width);
+          var lineY = Math.max(bounds.height - duration * yScale, 4);
+          ctx.lineTo(lineX, lineY);
         }
-        ctx.fillRect(leftX, topY, frameWidth, duration * yScale);
       }
+      ctx.strokeStyle = colors.HOVER_BORDER;
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
 
     // Draw a highlight border for the frame that is hovered over.
@@ -311,7 +325,7 @@ wtf.replay.graphics.ui.ReplayFramePainter.prototype.getInfoStringInternal =
   }
 
   if (this.frameTimeVisualizer_) {
-    var frame = this.frameTimeVisualizer_.getFrame(frameHit);
+    var frame = this.frameTimeVisualizer_.getFrame(0, frameHit);
     if (frame) {
       return frame.getTooltip();
     }

@@ -117,6 +117,12 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.setupMutators = function() {
       return false;
     }
   });
+
+  this.registerMutator('WebGLRenderingContext#clear', {
+    replace: function(visualizer, gl, args) {
+      return false;
+    }
+  });
 };
 
 
@@ -126,9 +132,10 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.setupMutators = function() {
  * @private
  */
 wtf.replay.graphics.SkipCallsVisualizer.prototype.handleDrawCall_ = function() {
-  return false;
+  return true;
 
-  if (this.latestProgramHandle_ == 17) {
+  // if (this.latestProgramHandle_ == 5) {
+  if (this.latestProgramHandle_ == 10 || this.latestProgramHandle_ == 130) {
     // Try skipping program handles 29, 11, 17 with BLK.
     return true;
   } else {
