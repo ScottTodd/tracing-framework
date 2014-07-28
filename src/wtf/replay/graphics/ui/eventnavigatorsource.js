@@ -143,9 +143,9 @@ wtf.replay.graphics.ui.EventNavigatorTableSource.COLOR_ = {
   CURRENT_TEXT: '#ffffff',
 
   /**
-   * The text color of the button for editing arguments.
+   * The text color of font buttons.
    */
-  ALTER_BUTTON_TEXT: '#aaaaaa',
+  FONT_BUTTON_TEXT: '#aaaaaa',
 
   /**
    * The background color of rows for events with altered arguments.
@@ -197,9 +197,19 @@ wtf.replay.graphics.ui.EventNavigatorTableSource.LENGTH_ = {
   HIGHLIGHT_WIDTH: 18,
 
   /**
+   * The left side of the skip draw call button.
+   */
+  SKIP_LEFT: 46,
+
+  /**
+   * The width of the SKIP draw call button.
+   */
+  SKIP_WIDTH: 18,
+
+  /**
    * The left side of the goto button.
    */
-  GOTO_LEFT: 46,
+  GOTO_LEFT: 64,
 
   /**
    * The width of the goto button.
@@ -209,7 +219,7 @@ wtf.replay.graphics.ui.EventNavigatorTableSource.LENGTH_ = {
   /**
    * The width of the gutter.
    */
-  GUTTER_WIDTH: 98
+  GUTTER_WIDTH: 116
 };
 
 
@@ -226,9 +236,9 @@ wtf.replay.graphics.ui.EventNavigatorTableSource.FONT_ = {
   DEFAULT: '11px monospace',
 
   /**
-   * The font for the edit button.
+   * The font for buttons.
    */
-  EDIT_BUTTON: '25px monospace'
+  BUTTON: '25px monospace'
 };
 
 
@@ -283,8 +293,8 @@ wtf.replay.graphics.ui.EventNavigatorTableSource.prototype.paintRowRange =
   // Draw goto buttons.
   if (wtf.events.getCommandManager()) {
     y = rowOffset;
-    ctx.font = fonts.EDIT_BUTTON;
-    ctx.fillStyle = colors.ALTER_BUTTON_TEXT;
+    ctx.font = fonts.BUTTON;
+    ctx.fillStyle = colors.FONT_BUTTON_TEXT;
     for (var n = first; n <= last; n++, y += rowHeight) {
       if (n != 0) {
         ctx.fillText('\u2299', lengths.GOTO_LEFT, y + rowHeight);
@@ -354,22 +364,33 @@ wtf.replay.graphics.ui.EventNavigatorTableSource.prototype.paintRowRange =
       if (it.isScope() || it.isInstance()) {
         // Draw the edit button if arguments exist.
         if (it.getType().getArguments().length) {
-          ctx.font = fonts.EDIT_BUTTON;
+          ctx.font = fonts.BUTTON;
           var oldColor = ctx.fillStyle;
-          ctx.fillStyle = colors.ALTER_BUTTON_TEXT;
+          ctx.fillStyle = colors.FONT_BUTTON_TEXT;
           // Use the unicode lower right pencil character as the edit button.
           ctx.fillText('\u270e', charWidth, y + rowHeight);
           ctx.fillStyle = oldColor;
           ctx.font = fonts.DEFAULT;
         }
 
-        // Draw the highlight button if this is a draw call.
+        // Draw draw call exclusive buttons.
         if (this.playback_.isDrawCall(it)) {
-          ctx.font = fonts.EDIT_BUTTON;
+          // Draw the highlight button.
+          ctx.font = fonts.BUTTON;
           var oldColor = ctx.fillStyle;
-          ctx.fillStyle = colors.ALTER_BUTTON_TEXT;
-          // Use the unicode black nib character as the highlight button.
-          ctx.fillText('\u2712', lengths.HIGHLIGHT_LEFT, y + rowHeight);
+          ctx.fillStyle = colors.FONT_BUTTON_TEXT;
+          // Use the unicode position indicator character as the highlight
+          // button.
+          ctx.fillText('\u2316', lengths.HIGHLIGHT_LEFT, y + rowHeight);
+          ctx.fillStyle = oldColor;
+          ctx.font = fonts.DEFAULT;
+
+          // Draw the skip button.
+          ctx.font = fonts.BUTTON;
+          var oldColor = ctx.fillStyle;
+          ctx.fillStyle = colors.FONT_BUTTON_TEXT;
+          // Use the unicode x in a box character as the skip button.
+          ctx.fillText('\u2327', lengths.SKIP_LEFT, y + rowHeight);
           ctx.fillStyle = oldColor;
           ctx.font = fonts.DEFAULT;
         }
@@ -494,6 +515,8 @@ wtf.replay.graphics.ui.EventNavigatorTableSource.prototype.onClick =
   var editRight = editLeft + lengths.EDIT_WIDTH;
   var highlightLeft = lengths.HIGHLIGHT_LEFT;
   var highlightRight = highlightLeft + lengths.HIGHLIGHT_WIDTH;
+  var skipLeft = lengths.SKIP_LEFT;
+  var skipRight = skipLeft + lengths.SKIP_WIDTH;
   var gotoLeft = lengths.GOTO_LEFT;
   var gotoRight = lengths.GUTTER_WIDTH;
   var contextLeft = lengths.GUTTER_WIDTH;
@@ -512,6 +535,10 @@ wtf.replay.graphics.ui.EventNavigatorTableSource.prototype.onClick =
     } else if (x > highlightLeft && x <= highlightRight) {
       if (playback.isDrawCall(it)) {
         playback.visualizeSubStep('highlight', it.getIndex());
+      }
+    } else if (x > skipLeft && x <= skipRight) {
+      if (playback.isDrawCall(it)) {
+        playback.visualizeSubStep('skipCalls', it.getIndex());
       }
     } else if (x > gotoLeft && x <= gotoRight) {
       // Goto button.
@@ -671,6 +698,8 @@ wtf.replay.graphics.ui.EventNavigatorTableSource.prototype.getInfoString =
   var editRight = editLeft + lengths.EDIT_WIDTH;
   var highlightLeft = lengths.HIGHLIGHT_LEFT;
   var highlightRight = highlightLeft + lengths.HIGHLIGHT_WIDTH;
+  var skipLeft = lengths.SKIP_LEFT;
+  var skipRight = skipLeft + lengths.SKIP_WIDTH;
   var gotoLeft = lengths.GOTO_LEFT;
   var gotoRight = lengths.GUTTER_WIDTH;
   var contextLeft = lengths.GUTTER_WIDTH;
@@ -685,6 +714,13 @@ wtf.replay.graphics.ui.EventNavigatorTableSource.prototype.getInfoString =
   } else if (x > highlightLeft && x <= highlightRight) {
     if (this.playback_.isDrawCall(it)) {
       return 'Highlight this draw call';
+    } else {
+      // Otherwise, show what the goto area shows.
+      return it.getScopeStackString();
+    }
+  } else if (x > skipLeft && x <= skipRight) {
+    if (this.playback_.isDrawCall(it)) {
+      return 'Skip draws with the shader program used here';
     } else {
       // Otherwise, show what the goto area shows.
       return it.getScopeStackString();

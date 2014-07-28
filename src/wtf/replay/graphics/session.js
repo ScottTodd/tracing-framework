@@ -89,7 +89,7 @@ wtf.replay.graphics.Session = function(db, parentElement, opt_domHelper) {
   var skipCallsVisualizer = new wtf.replay.graphics.SkipCallsVisualizer(
       this.playback_);
   this.playback_.addVisualizer(skipCallsVisualizer, 'skipCalls');
-  // this.playback_.visualizeContinuous('skipCalls');
+  this.playback_.visualizeContinuous('skipCalls');
 
   /**
    * A panel for controlling graphics replay.

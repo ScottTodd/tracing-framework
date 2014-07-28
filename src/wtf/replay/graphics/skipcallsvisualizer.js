@@ -41,6 +41,14 @@ wtf.replay.graphics.SkipCallsVisualizer = function(playback) {
    * @private
    */
   this.latestProgramHandle_ = 0;
+
+  /**
+   * Storage of which program handles should have their draw calls skipped.
+   * Keys are program handles, values are whether the program handle is skipped.
+   * @type {!Array.<boolean>}
+   * @private
+   */
+  this.skippedProgramHandles_ = [];
 };
 goog.inherits(wtf.replay.graphics.SkipCallsVisualizer,
     wtf.replay.graphics.Visualizer);
@@ -66,7 +74,10 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.setupMutators = function() {
 
   this.registerMutator('WebGLRenderingContext#useProgram', {
     post: function(visualizer, gl, args) {
-      visualizer.latestProgramHandle_ = args['program'];
+      var programHandle = args['program'];
+      visualizer.latestProgramHandle_ = programHandle;
+      visualizer.skippedProgramHandles_[programHandle] =
+          visualizer.skippedProgramHandles_[programHandle] || false;
     }
   });
 
@@ -132,15 +143,7 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.setupMutators = function() {
  * @private
  */
 wtf.replay.graphics.SkipCallsVisualizer.prototype.handleDrawCall_ = function() {
-  return true;
-
-  // if (this.latestProgramHandle_ == 5) {
-  if (this.latestProgramHandle_ == 10 || this.latestProgramHandle_ == 130) {
-    // Try skipping program handles 29, 11, 17 with BLK.
-    return true;
-  } else {
-    return false;
-  }
+  return this.skippedProgramHandles_[this.latestProgramHandle_];
 };
 
 
@@ -159,6 +162,36 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.anyReplaceEvent = function(
   // }
   // return false;
   return false;
+};
+
+
+/**
+ * Runs this visualization on a substep of the current step.
+ * @param {number=} opt_subStepIndex Target substep, or the current by default.
+ * @override
+ */
+wtf.replay.graphics.SkipCallsVisualizer.prototype.applyToSubStep = function(
+    opt_subStepIndex) {
+  var currentSubStepIndex = this.playback.getSubStepEventIndex();
+  var targetSubStepIndex = opt_subStepIndex || currentSubStepIndex;
+
+  var currentStep = this.playback.getCurrentStep();
+  var it = currentStep.getEventIterator(true);
+
+  var latestProgramHandle = 0;
+  while (it.getIndex() < targetSubStepIndex && it.getIndex() < it.getCount()) {
+    if (it.getName() == 'WebGLRenderingContext#useProgram') {
+      var args = it.getArguments();
+      latestProgramHandle = args['program'];
+    }
+    it.next();
+  }
+
+  // TODO(scotttodd): Update events somehow to let eventnavigatorsource know
+  //   about disabled draw calls for display so that it can grey them out.
+
+  this.skippedProgramHandles_[latestProgramHandle] =
+      !this.skippedProgramHandles_[latestProgramHandle];
 };
 
 
