@@ -26,6 +26,7 @@ goog.require('goog.webgl');
 goog.require('wtf.events.EventEmitter');
 goog.require('wtf.replay.graphics.ExtensionManager');
 goog.require('wtf.replay.graphics.Step');
+goog.require('wtf.replay.graphics.Visualizer');
 goog.require('wtf.timing.util');
 
 
@@ -288,7 +289,12 @@ wtf.replay.graphics.Playback.EventType = {
   /**
    * A context message was changed.
    */
-  CONTEXT_MESSAGE_CHANGED: goog.events.getUniqueId('context_message_changed')
+  CONTEXT_MESSAGE_CHANGED: goog.events.getUniqueId('context_message_changed'),
+
+  /**
+   * A Visualizer's continuous playback affecting state changed.
+   */
+  VISUALIZER_STATE_CHANGED: goog.events.getUniqueId('visualizer_state_changed')
 };
 
 
@@ -508,6 +514,25 @@ wtf.replay.graphics.Playback.prototype.addVisualizer = function(
   this.visualizers_.push(visualizer);
   this.visualizerNames_.push(name);
   this.registerDisposable(visualizer);
+
+  visualizer.addListener(wtf.replay.graphics.Visualizer.EventType.STATE_CHANGED,
+      function() {
+        this.emitEvent(
+            wtf.replay.graphics.Playback.EventType.VISUALIZER_STATE_CHANGED);
+      }, this);
+};
+
+
+/**
+ * Gets the combined state hash for all active visualizers.
+ * @return {string} The state hash.
+ */
+wtf.replay.graphics.Playback.prototype.getVisualizerStateHash = function() {
+  var hash = '';
+  for (var i = 0; i < this.visualizers_.length; ++i) {
+    hash += this.visualizers_[i].getStateHash();
+  }
+  return hash;
 };
 
 

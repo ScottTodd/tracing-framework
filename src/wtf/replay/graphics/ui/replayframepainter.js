@@ -185,7 +185,7 @@ wtf.replay.graphics.ui.ReplayFramePainter.prototype.repaintInternal = function(
   var frameWidth = bounds.width / (this.max_ - this.min_);
 
   var colors = wtf.replay.graphics.ui.ReplayFramePainter.COLORS_;
-  var leftX, topY, duration;
+  var i, leftX, topY, duration;
 
   var hoverIndex = 0;
   if (this.hoverX_) {
@@ -193,7 +193,7 @@ wtf.replay.graphics.ui.ReplayFramePainter.prototype.repaintInternal = function(
   }
 
   // Draw background bars in alternating shades of grey.
-  for (var i = this.min_; i < this.max_; ++i) {
+  for (i = this.min_; i < this.max_; ++i) {
     leftX = wtf.math.remap(i - 0.5, this.min_, this.max_, 0, bounds.width);
     if (i == this.currentFrame_) {
       ctx.fillStyle = colors.CURRENT_BACKGROUND;
@@ -214,33 +214,46 @@ wtf.replay.graphics.ui.ReplayFramePainter.prototype.repaintInternal = function(
 
   // Draw the frame times in a colored bar graph.
   if (this.frameTimeVisualizer_) {
+    var experiments = this.frameTimeVisualizer_.getExperiments();
+    var frames, frame, i;
 
-    for (var exp = 0; exp < this.frameTimeVisualizer_.frames_.length; ++exp) {
-      var frames = this.frameTimeVisualizer_.getFrames(exp);
-
-      ctx.beginPath();
-      ctx.moveTo(0, bounds.height);
-      for (var i = this.min_; i < this.max_; ++i) {
-        var frame = frames[i];
+    // Draw frame bar graph for the default experiment (no updated state).
+    frames = experiments[''];
+    if (frames) {
+      for (i = this.min_; i < this.max_; ++i) {
+        frame = frames[i];
         if (frame) {
           duration = frame.getAverageDuration();
+
           leftX = wtf.math.remap(i - 0.5, this.min_, this.max_,
               0, bounds.width);
           topY = Math.max(bounds.height - duration * yScale, 0);
 
           // Draw a bar for this frame.
-          if (exp == 0) {
-            if (duration < 17) {
-              ctx.fillStyle = colors.FRAME_TIME_17;
-            } else if (duration < 33) {
-              ctx.fillStyle = colors.FRAME_TIME_33;
-            } else if (duration < 50) {
-              ctx.fillStyle = colors.FRAME_TIME_50;
-            } else {
-              ctx.fillStyle = colors.FRAME_TIME_50_PLUS;
-            }
-            ctx.fillRect(leftX, topY, frameWidth, duration * yScale);
+          if (duration < 17) {
+            ctx.fillStyle = colors.FRAME_TIME_17;
+          } else if (duration < 33) {
+            ctx.fillStyle = colors.FRAME_TIME_33;
+          } else if (duration < 50) {
+            ctx.fillStyle = colors.FRAME_TIME_50;
+          } else {
+            ctx.fillStyle = colors.FRAME_TIME_50_PLUS;
           }
+          ctx.fillRect(leftX, topY, frameWidth, duration * yScale);
+        }
+      }
+    }
+
+    // Draw a line graph for each experiment.
+    for (var stateHash in experiments) {
+      var frames = experiments[stateHash];
+
+      ctx.beginPath();
+      ctx.moveTo(0, bounds.height);
+      for (i = this.min_; i < this.max_; ++i) {
+        frame = frames[i];
+        if (frame) {
+          duration = frame.getAverageDuration();
 
           var lineX = wtf.math.remap(i, this.min_, this.max_, 0, bounds.width);
           var lineY = Math.max(bounds.height - duration * yScale, 4);
@@ -325,9 +338,25 @@ wtf.replay.graphics.ui.ReplayFramePainter.prototype.getInfoStringInternal =
   }
 
   if (this.frameTimeVisualizer_) {
-    var frame = this.frameTimeVisualizer_.getFrame(0, frameHit);
-    if (frame) {
-      return frame.getTooltip();
+    var tooltip;
+    var experiments = this.frameTimeVisualizer_.getExperiments();
+
+    var tooltips = [];
+    for (var stateHash in experiments) {
+      var frames = experiments[stateHash];
+
+      if (frames[frameHit]) {
+        tooltip = '';
+        if (stateHash) {
+          tooltip += stateHash + '\n';
+        }
+        tooltip += frames[frameHit].getTooltip();
+        tooltips.push(tooltip);
+      }
+    }
+
+    if (tooltips) {
+      return tooltips.join('\n');
     }
   }
 

@@ -38,12 +38,12 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
   this.latestStepIndex_ = -1;
 
   /**
-   * The id of the latest experiment.
+   * The hash of the latest experiment.
    * Experiments are configurations of visualizer states which affect playback.
-   * @type {number}
+   * @type {string}
    * @private
    */
-  this.latestExperimentId_ = 0;
+  this.latestExperimentHash_ = playback.getVisualizerStateHash();
 
   /**
    * Array of experiments containing arrays of frames recorded.
@@ -51,6 +51,14 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
    * @private
    */
   this.frames_ = [];
+
+  /**
+   * Collection of experiments. Each experiment is an array of frames recorded.
+   * Keys are visualizer state hashes, compiled from all active visualizers.
+   * @type {!Object.<!Array.<!wtf.replay.graphics.ReplayFrame>>}
+   * @private
+   */
+  this.experiments_ = {};
 
   playback.addListener(wtf.replay.graphics.Playback.EventType.STEP_CHANGED,
       this.recordTimes_, this);
@@ -62,6 +70,10 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
           previousFrame.cancelTiming();
         }
       }, this);
+
+  playback.addListener(
+      wtf.replay.graphics.Playback.EventType.VISUALIZER_STATE_CHANGED,
+      this.updateStateHash_, this);
 
   /**
    * A mapping of handles to contexts.
@@ -118,6 +130,15 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrames = function(
 
 
 /**
+ * Gets all experiments.
+ * @return {!Object.<!Array.<!wtf.replay.graphics.ReplayFrame>>} Experiments.
+ */
+wtf.replay.graphics.FrameTimeVisualizer.prototype.getExperiments = function() {
+  return this.experiments_;
+};
+
+
+/**
  * Gets a specific frame.
  * @param {number} experimentId The experiment id.
  * @param {number} number The frame number.
@@ -139,16 +160,16 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.getFrame = function(
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.getCurrentFrame_ =
     function() {
-  var experimentId = this.latestExperimentId_;
+  var experimentHash = this.latestExperimentHash_;
   var currentStepIndex = this.playback.getCurrentStepIndex();
-  if (!this.frames_[experimentId]) {
-    this.frames_[experimentId] = [];
+  if (!this.experiments_[experimentHash]) {
+    this.experiments_[experimentHash] = [];
   }
-  if (!this.frames_[experimentId][currentStepIndex]) {
-    this.frames_[experimentId][currentStepIndex] =
+  if (!this.experiments_[experimentHash][currentStepIndex]) {
+    this.experiments_[experimentHash][currentStepIndex] =
         new wtf.replay.graphics.ReplayFrame(currentStepIndex);
   }
-  return this.frames_[experimentId][currentStepIndex];
+  return this.experiments_[experimentHash][currentStepIndex];
 };
 
 
@@ -159,10 +180,11 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.getCurrentFrame_ =
  */
 wtf.replay.graphics.FrameTimeVisualizer.prototype.getPreviousFrame_ =
     function() {
-  if (!this.frames_[this.latestExperimentId_]) {
-    this.frames_[this.latestExperimentId_] = [];
+
+  if (!this.experiments_[this.latestExperimentHash_]) {
+    this.experiments_[this.latestExperimentHash_] = [];
   }
-  return this.frames_[this.latestExperimentId_][this.latestStepIndex_];
+  return this.experiments_[this.latestExperimentHash_][this.latestStepIndex_];
 };
 
 
@@ -174,6 +196,16 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.updateStepIndex_ =
     function() {
   var currentStepIndex = this.playback.getCurrentStepIndex();
   this.latestStepIndex_ = currentStepIndex;
+};
+
+
+/**
+ * Updates the latest experiment state hash.
+ * @private
+ */
+wtf.replay.graphics.FrameTimeVisualizer.prototype.updateStateHash_ =
+    function() {
+  this.latestExperimentHash_ = this.playback.getVisualizerStateHash();
 };
 
 

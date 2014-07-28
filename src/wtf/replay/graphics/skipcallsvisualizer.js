@@ -71,7 +71,6 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.setupMutators = function() {
     }
   });
 
-
   this.registerMutator('WebGLRenderingContext#useProgram', {
     post: function(visualizer, gl, args) {
       var programHandle = args['program'];
@@ -138,6 +137,27 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.setupMutators = function() {
 
 
 /**
+ * Returns a hash of the current internal states which affect playback.
+ * @return {string} Hash of the internal playback-affecting states.
+ * @protected
+ * @override
+ */
+wtf.replay.graphics.SkipCallsVisualizer.prototype.getStateHash = function() {
+  if (!this.active) {
+    return '';
+  }
+
+  var skipped = [];
+  for (var i = 0; i < this.skippedProgramHandles_.length; ++i) {
+    if (this.skippedProgramHandles_[i]) {
+      skipped.push(i);
+    }
+  }
+  return skipped.join(',');
+};
+
+
+/**
  * Returns whether this draw call should be skipped in playback.
  * @return {boolean} Whether the event should be skipped in playback.
  * @private
@@ -153,6 +173,7 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.handleDrawCall_ = function() {
  * @param {WebGLRenderingContext} gl The context.
  * @return {boolean} Whether the event should be skipped in playback.
  * @protected
+ * @override
  */
 wtf.replay.graphics.SkipCallsVisualizer.prototype.anyReplaceEvent = function(
     it, gl) {
@@ -175,6 +196,9 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.applyToSubStep = function(
   var currentSubStepIndex = this.playback.getSubStepEventIndex();
   var targetSubStepIndex = opt_subStepIndex || currentSubStepIndex;
 
+  // Find the latest useProgram call before the target substep.
+  // TODO(scotttodd): Make this work even when the latest useProgram call was
+  //   from a previous step.
   var currentStep = this.playback.getCurrentStep();
   var it = currentStep.getEventIterator(true);
 
@@ -192,6 +216,8 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.applyToSubStep = function(
 
   this.skippedProgramHandles_[latestProgramHandle] =
       !this.skippedProgramHandles_[latestProgramHandle];
+
+  this.emitEvent(wtf.replay.graphics.Visualizer.EventType.STATE_CHANGED);
 };
 
 

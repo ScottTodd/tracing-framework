@@ -11,8 +11,10 @@
  * @author scotttodd@google.com (Scott Todd)
  */
 
-goog.require('wtf.events.EventEmitter');
 goog.provide('wtf.replay.graphics.Visualizer');
+
+goog.require('goog.events');
+goog.require('wtf.events.EventEmitter');
 
 
 
@@ -56,6 +58,19 @@ wtf.replay.graphics.Visualizer = function(playback) {
   this.setupMutators();
 };
 goog.inherits(wtf.replay.graphics.Visualizer, wtf.events.EventEmitter);
+
+
+/**
+ * Events related to this Visualizer.
+ * @enum {string}
+ */
+wtf.replay.graphics.Visualizer.EventType = {
+  /**
+   * Some state that affects continuous playback has been changed.
+   * This change should be reflected in {@see #getStateHash}.
+   */
+  STATE_CHANGED: goog.events.getUniqueId('state_changed')
+};
 
 
 /**
@@ -104,6 +119,16 @@ wtf.replay.graphics.Visualizer.prototype.registerMutator = function(name,
  * @protected
  */
 wtf.replay.graphics.Visualizer.prototype.setupMutators = goog.nullFunction;
+
+
+/**
+ * Returns a hash of the current internal states which affect playback.
+ * @return {string} Hash of the internal playback-affecting states.
+ * @protected
+ */
+wtf.replay.graphics.Visualizer.prototype.getStateHash = function() {
+  return '';
+};
 
 
 /**
