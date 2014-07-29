@@ -60,8 +60,11 @@ wtf.replay.graphics.FrameTimeVisualizer = function(playback) {
    */
   this.experiments_ = {};
 
+  playback.addListener(wtf.replay.graphics.Playback.EventType.STEP_STARTED,
+      this.recordStart_, this);
+
   playback.addListener(wtf.replay.graphics.Playback.EventType.STEP_CHANGED,
-      this.recordTimes_, this);
+      this.recordStop_, this);
 
   playback.addListener(wtf.replay.graphics.Playback.EventType.PLAY_STOPPED,
       function() {
@@ -210,10 +213,10 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.updateStateHash_ =
 
 
 /**
- * Records frame times. Call when the step changes.
+ * Records end frame times. Call when the step changes.
  * @private
  */
-wtf.replay.graphics.FrameTimeVisualizer.prototype.recordTimes_ = function() {
+wtf.replay.graphics.FrameTimeVisualizer.prototype.recordStop_ = function() {
   if (this.playback.isPlaying()) {
     // Finish rendering in all contexts.
     for (var contextHandle in this.contexts_) {
@@ -226,11 +229,20 @@ wtf.replay.graphics.FrameTimeVisualizer.prototype.recordTimes_ = function() {
       previousFrame.stopTiming();
     }
 
-    var currentFrame = this.getCurrentFrame_();
-    currentFrame.startTiming();
-
     this.emitEvent(
         wtf.replay.graphics.FrameTimeVisualizer.EventType.FRAMES_UPDATED);
+  }
+};
+
+
+/**
+ * Records start frame times. Call when a new step begins.
+ * @private
+ */
+wtf.replay.graphics.FrameTimeVisualizer.prototype.recordStart_ = function() {
+  if (this.playback.isPlaying()) {
+    var currentFrame = this.getCurrentFrame_();
+    currentFrame.startTiming();
   }
 
   this.updateStepIndex_();
