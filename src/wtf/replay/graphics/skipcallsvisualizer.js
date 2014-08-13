@@ -72,7 +72,7 @@ wtf.replay.graphics.SkipCallsVisualizer.prototype.setupMutators = function() {
   });
 
   this.registerMutator('WebGLRenderingContext#useProgram', {
-    post: function(visualizer, gl, args) {
+    replace: function(visualizer, gl, args) {
       var programHandle = args['program'];
       visualizer.latestProgramHandle_ = programHandle;
       visualizer.skippedProgramHandles_[programHandle] =

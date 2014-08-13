@@ -261,6 +261,11 @@ wtf.replay.graphics.Playback.EventType = {
   STEP_STARTED: goog.events.getUniqueId('step_started'),
 
   /**
+   * A new step started rendering during continuous playback.
+   */
+  RENDER_STARTED: goog.events.getUniqueId('render_started'),
+
+  /**
    * The current step changed.
    */
   STEP_CHANGED: goog.events.getUniqueId('step_changed'),
@@ -969,11 +974,23 @@ wtf.replay.graphics.Playback.prototype.issueStep_ = function() {
   var stepToPlayFrom = this.steps_[this.currentStepIndex_];
   var self = this;
   var handler = function() {
-    self.emitEvent(wtf.replay.graphics.Playback.EventType.STEP_STARTED);
     self.subStepId_ = -1;
+
+    self.emitEvent(wtf.replay.graphics.Playback.EventType.STEP_STARTED);
+
+    // Collect event handlers before starting to render.
+    var eventHandlers = [];
     for (var it = stepToPlayFrom.getEventIterator(); !it.done(); it.next()) {
-      self.realizeEvent_(it);
+      eventHandlers.push(self.getEventHandler_(it));
     }
+
+    self.emitEvent(wtf.replay.graphics.Playback.EventType.RENDER_STARTED);
+    var i = 0;
+    for (var it = stepToPlayFrom.getEventIterator(); !it.done(); it.next()) {
+      self.realizeEventHandler_(it, eventHandlers[i]);
+      i++;
+    }
+
     ++self.currentStepIndex_;
     self.emitEvent(wtf.replay.graphics.Playback.EventType.STEP_CHANGED);
     self.issueStep_();
@@ -1260,35 +1277,71 @@ wtf.replay.graphics.Playback.prototype.getCurrentStepIndex = function() {
  * @private
  */
 wtf.replay.graphics.Playback.prototype.realizeEvent_ = function(it) {
-  var i;
-  for (i = 0; i < this.visualizers_.length; ++i) {
-    this.visualizers_[i].handlePreEvent(it, this.currentContext_);
-  }
+  var eventHandler = this.getEventHandler_(it);
+  this.realizeEventHandler_(it, eventHandler);
+};
+
+
+/**
+ * @typedef {{
+ *   skip: (boolean|undefined),
+ *   associatedFunction: (wtf.replay.graphics.Playback.Call_|undefined)}}
+ */
+wtf.replay.graphics.Playback.EventHandler;
+
+
+/**
+ * Gets a handler for the current event.
+ * @param {!wtf.db.EventIterator} it Event iterator.
+ * @return {wtf.replay.graphics.Playback.EventHandler}
+ * @private
+ */
+wtf.replay.graphics.Playback.prototype.getEventHandler_ = function(it) {
+  var eventHandler = {};
 
   var associatedFunction = this.callLookupTable_[it.getTypeId()];
   if (associatedFunction) {
-    try {
-      // If any handleReplaceEvent returns true, do not call the function.
-      var skipCall = false;
-      for (i = 0; i < this.visualizers_.length; ++i) {
-        skipCall = skipCall ||
-            this.visualizers_[i].handleReplaceEvent(it, this.currentContext_);
-      }
-
-      if (!skipCall) {
-        associatedFunction.call(null, it.getId(), this, this.currentContext_,
-            it.getArguments(), this.objects_);
-      }
-    } catch (e) {
-      // TODO(benvanik): log to status bar? this usually happens with
-      //     cross-origin texture uploads.
-      goog.global.console.log('Error realizing event ' + it.getLongString() +
-          ': ' + e);
+    // If any handleReplaceEvent returns true, skip the function.
+    var skipCall = false;
+    for (var i = 0; i < this.visualizers_.length; ++i) {
+      skipCall = skipCall ||
+          this.visualizers_[i].handleReplaceEvent(it, this.currentContext_);
     }
+
+    eventHandler.skip = skipCall;
+    eventHandler.associatedFunction = associatedFunction;
   }
 
-  for (i = 0; i < this.visualizers_.length; ++i) {
-    this.visualizers_[i].handlePostEvent(it, this.currentContext_);
+  return eventHandler;
+};
+
+
+/**
+ * Realizes an event handler.
+ * @param {!wtf.db.EventIterator} it Event iterator.
+ * @param {!wtf.replay.graphics.Playback.EventHandler} eventHandler The handler.
+ * @private
+ */
+wtf.replay.graphics.Playback.prototype.realizeEventHandler_ = function(it,
+    eventHandler) {
+  for (var j = 0; j < this.visualizers_.length; ++j) {
+    this.visualizers_[j].handlePreEvent(it, this.currentContext_);
+  }
+
+  try {
+    if (eventHandler.associatedFunction && !eventHandler.skip) {
+      eventHandler.associatedFunction.call(null, it.getId(), this,
+          this.currentContext_, it.getArguments(), this.objects_);
+    }
+  } catch (e) {
+    // TODO(benvanik): log to status bar? this usually happens with
+    //     cross-origin texture uploads.
+    goog.global.console.log('Error realizing event ' + it.getLongString() +
+        ': ' + e);
+  }
+
+  for (var j = 0; j < this.visualizers_.length; ++j) {
+    this.visualizers_[j].handlePostEvent(it, this.currentContext_);
   }
 };
 
